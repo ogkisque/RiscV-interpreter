@@ -132,7 +132,12 @@ private:
         {
             uint8_t opcode = raw_instr.code & 0x7F;
             auto it = isa::instructions_map.find(opcode);
-            assert(it != isa::instructions_map.end());
+            if (it == isa::instructions_map.end())
+            {
+                fprintf(stderr, "Unknown instruction. Opcode: 0x%08x; Address: 0x%08x\n",
+                                opcode, raw_instr.address);
+                assert(0);
+            }
             auto instr_info = it->second;
             instrs_.emplace_back(raw_instr, instr_info);
 

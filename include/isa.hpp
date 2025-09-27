@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "core.hpp"
+#include "helpers.hpp"
 
 namespace isa
 {
@@ -45,10 +46,40 @@ public:
         switch (type)
         {
             case InstructionType::U:
-                rd_ = code >> 7 & 0x1F;
-                imm_ = code >> 12;
+                rd_ = helpers::get_rd(code);
+                imm_ = helpers::get_imm_u(code);
+                break;
+            case InstructionType::R:
+                rd_ = helpers::get_rd(code);
+                rs1_ = helpers::get_rs1(code);
+                rs2_ = helpers::get_rs2(code);
+                funct3_ = helpers::get_funct3(code);
+                funct7_ = helpers::get_funct7(code);
+                break;
+            case InstructionType::I:
+                rd_ = helpers::get_rd(code);
+                rs1_ = helpers::get_rs1(code);
+                funct3_ = helpers::get_funct3(code);
+                imm_ = helpers::get_imm_i(code);
+                break;
+            case InstructionType::S:
+                rs1_ = helpers::get_rs1(code);
+                rs2_ = helpers::get_rs2(code);
+                funct3_ = helpers::get_funct3(code);
+                imm_ = helpers::get_imm_s(code);
+                break;
+            case InstructionType::B:
+                rs1_ = helpers::get_rs1(code);
+                rs2_ = helpers::get_rs2(code);
+                funct3_ = helpers::get_funct3(code);
+                imm_ = helpers::get_imm_b(code);
+                break;
+            case InstructionType::J:
+                rd_ = helpers::get_rd(code);
+                imm_ = helpers::get_imm_j(code);
                 break;
             default:
+
                 break;
         }
     }
@@ -124,9 +155,30 @@ uint32_t exec_lui(core::Core& core, const isa::Instruction& instr)
     core.set_int_reg(rd, imm);
 }
 
+uint32_t exec_addi(core::Core& core, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto imm = instr.get_imm();
+
+    core.set_int_reg(rd, imm);
+}
+
+uint32_t exec_base_math(core::Core& core, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto imm = instr.get_imm();
+    auto rs1 = instr.get_rs1();
+    auto funct3 = instr.get_funct3();
+    uint32_t res = 0;
+
+
+    core.set_int_reg(rd, imm);
+}
+
 std::unordered_map<uint8_t, Instruction::InstructionInfo> instructions_map = 
     {
-        {0b0110111, {InstructionType::U, "lui", exec_lui}}
+        {0b0110111, {InstructionType::U, "lui", exec_lui}},
+        {0b0010011, {InstructionType::I, "base math", exec_base_math}}
     };
 
 } // namespace isa
