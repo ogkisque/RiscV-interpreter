@@ -6,8 +6,7 @@
 #include <utility>
 #include <optional>
 
-#include "core.hpp"
-#include "helpers.hpp"
+#include "memory.hpp"
 
 namespace isa
 {
@@ -17,9 +16,27 @@ enum class InstructionType
     R, I, S, B, U, J
 };
 
+const uint8_t BASE_MATH_OPCODE = 0b0010011;
+enum class BaseMathInstructionType
+{
+    ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI_SRAI
+};
+
+const std::unordered_map<uint8_t, std::pair<BaseMathInstructionType, std::string>>
+instructions_base_math_map = {
+    {0b000, {BaseMathInstructionType::ADDI, "addi"}},
+    {0b010, {BaseMathInstructionType::SLTI, "slti"}},
+    {0b011, {BaseMathInstructionType::SLTIU, "sltiu"}},
+    {0b100, {BaseMathInstructionType::XORI, "xori"}},
+    {0b110, {BaseMathInstructionType::ORI, "ori"}},
+    {0b111, {BaseMathInstructionType::ANDI, "andi"}},
+    {0b001, {BaseMathInstructionType::SLLI, "slli"}},
+    {0b101, {BaseMathInstructionType::SRLI_SRAI, "srli/srai"}}
+};
+
 class Instruction;
 
-using ExecuteFunction = uint32_t(*)(core::Core& core, const Instruction& instr);
+using ExecuteFunction = uint32_t(*)(memory::Memory& memory, const Instruction& instr);
 
 class Instruction
 {
@@ -37,54 +54,9 @@ public:
         ExecuteFunction func;
     };
 
-    Instruction(RawInstruction raw_instr, InstructionInfo info) : 
-        raw_(raw_instr), info_(info)
-    {
-        auto type = info_.type;
-        auto code = raw_instr.code;
+    Instruction(RawInstruction raw_instr, InstructionInfo info);
 
-        switch (type)
-        {
-            case InstructionType::U:
-                rd_ = helpers::get_rd(code);
-                imm_ = helpers::get_imm_u(code);
-                break;
-            case InstructionType::R:
-                rd_ = helpers::get_rd(code);
-                rs1_ = helpers::get_rs1(code);
-                rs2_ = helpers::get_rs2(code);
-                funct3_ = helpers::get_funct3(code);
-                funct7_ = helpers::get_funct7(code);
-                break;
-            case InstructionType::I:
-                rd_ = helpers::get_rd(code);
-                rs1_ = helpers::get_rs1(code);
-                funct3_ = helpers::get_funct3(code);
-                imm_ = helpers::get_imm_i(code);
-                break;
-            case InstructionType::S:
-                rs1_ = helpers::get_rs1(code);
-                rs2_ = helpers::get_rs2(code);
-                funct3_ = helpers::get_funct3(code);
-                imm_ = helpers::get_imm_s(code);
-                break;
-            case InstructionType::B:
-                rs1_ = helpers::get_rs1(code);
-                rs2_ = helpers::get_rs2(code);
-                funct3_ = helpers::get_funct3(code);
-                imm_ = helpers::get_imm_b(code);
-                break;
-            case InstructionType::J:
-                rd_ = helpers::get_rd(code);
-                imm_ = helpers::get_imm_j(code);
-                break;
-            default:
-
-                break;
-        }
-    }
-
-    int get_imm() const
+    uint32_t get_imm() const
     {
         assert(imm_.has_value());
         return imm_.value();
@@ -122,6 +94,10 @@ public:
 
     std::string get_name() const
     {
+        if (additional_name_.has_value())
+        {
+            return info_.name + "::" + additional_name_.value();
+        }
         return info_.name;
     }
 
@@ -135,50 +111,35 @@ public:
         return raw_.code;
     }
 
+    BaseMathInstructionType get_base_math_instr_type() const
+    {
+        assert(base_math_instr_type_.has_value());
+        return base_math_instr_type_.value();
+    }
+
 private:
     RawInstruction raw_;
     InstructionInfo info_;
 
     std::optional<uint8_t> funct3_ = std::nullopt;
     std::optional<uint8_t> funct7_ = std::nullopt;
-    std::optional<int> imm_ = std::nullopt;
+    std::optional<uint32_t> imm_ = std::nullopt;
     std::optional<uint8_t> rd_ = std::nullopt;
     std::optional<uint8_t> rs1_ = std::nullopt;
     std::optional<uint8_t> rs2_= std::nullopt;
+
+    std::optional<BaseMathInstructionType> base_math_instr_type_ = std::nullopt;
+    std::optional<std::string> additional_name_ = std::nullopt;
 };
 
-uint32_t exec_lui(core::Core& core, const isa::Instruction& instr)
-{
-    auto rd = instr.get_rd();
-    auto imm = instr.get_imm();
+uint32_t exec_lui(memory::Memory& memory, const isa::Instruction& instr);
 
-    core.set_int_reg(rd, imm);
-}
+uint32_t exec_base_math(memory::Memory& memory, const isa::Instruction& instr);
 
-uint32_t exec_addi(core::Core& core, const isa::Instruction& instr)
-{
-    auto rd = instr.get_rd();
-    auto imm = instr.get_imm();
-
-    core.set_int_reg(rd, imm);
-}
-
-uint32_t exec_base_math(core::Core& core, const isa::Instruction& instr)
-{
-    auto rd = instr.get_rd();
-    auto imm = instr.get_imm();
-    auto rs1 = instr.get_rs1();
-    auto funct3 = instr.get_funct3();
-    uint32_t res = 0;
-
-
-    core.set_int_reg(rd, imm);
-}
-
-std::unordered_map<uint8_t, Instruction::InstructionInfo> instructions_map = 
-    {
-        {0b0110111, {InstructionType::U, "lui", exec_lui}},
-        {0b0010011, {InstructionType::I, "base math", exec_base_math}}
-    };
+const std::unordered_map<uint8_t, Instruction::InstructionInfo>
+instructions_map = {
+    {0b0110111, {InstructionType::U, "lui", exec_lui}},
+    {BASE_MATH_OPCODE, {InstructionType::I, "base_math", exec_base_math}}
+};
 
 } // namespace isa

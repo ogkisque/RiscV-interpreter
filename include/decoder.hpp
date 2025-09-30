@@ -121,9 +121,10 @@ private:
         }
     }
 
-    void parse_raw()
+    std::vector<std::shared_ptr<isa::Instruction>> parse_raw()
     {
-        instrs_.reserve(raw_instrs_.size());
+        std::vector<std::shared_ptr<isa::Instruction>> instrs;
+        instrs.reserve(raw_instrs_.size());
 
         int num_to_parse = 1;
         int i = 0;
@@ -139,43 +140,25 @@ private:
                 assert(0);
             }
             auto instr_info = it->second;
-            instrs_.emplace_back(raw_instr, instr_info);
+            instrs.push_back(std::make_shared<isa::Instruction>(raw_instr, instr_info));
 
             i++;
             if (i >= num_to_parse)
                 break;
         }
+
+        return instrs;
     }
 
 public:
-    void decode(const std::string& filename)
+    std::vector<std::shared_ptr<isa::Instruction>> decode(const std::string& filename)
     {
         parse_elf(filename);
-        parse_raw();
-    }
-
-    void dump_raw_instrs() const
-    {
-        for (auto& instr : raw_instrs_)
-        {
-            std::cerr << std::hex << std::setw(8) << std::setfill('0') << instr.address << ": "
-                      << std::hex << std::setw(8) << std::setfill('0') << instr.code << "    "
-                      << std::bitset<32>(instr.code) << std::endl;
-        }
-    }
-
-    void dump_instr() const
-    {
-        for (auto& instr : instrs_)
-        {
-            fprintf(stderr, "address: 0x%08x; code: 0x%08x; name: %s\n",
-                            instr.get_address(), instr.get_raw_code(), instr.get_name().c_str());
-        }
+        return parse_raw();
     }
 
 private:
     std::vector<isa::Instruction::RawInstruction> raw_instrs_;
-    std::vector<isa::Instruction> instrs_;
 
 }; // class Decoder
 

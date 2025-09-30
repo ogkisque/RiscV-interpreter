@@ -1,50 +1,45 @@
 #pragma once
 
-#include <vector>
-#include <array>
-#include <cassert>
+#include <memory>
+
+#include "decoder.hpp"
+#include "memory.hpp"
 
 namespace core
 {
 
-const int NUM_INT_REGS = 32;
-const int NUM_FLOAT_REGS = 32;
-
 class Core
 {
 public:
-    void set_int_reg(int num, int val)
+    void dump_instr() const
     {
-        assert(num < NUM_INT_REGS);
-        assert(num != 0);
-        int_regs[num] = val;
-    }
-
-    int get_int_reg(int num) const
-    {
-        assert(num < NUM_INT_REGS);
-        if (num == 0)
+        for (auto& instr : instrs_)
         {
-            return 0;
+            printf("address: 0x%08x; code: 0x%08x; name: %s\n",
+                    instr->get_address(), instr->get_raw_code(), instr->get_name().c_str());
         }
-        return int_regs[num];
     }
 
-    void set_int_reg(int num, float val)
+    void decode(const std::string& filename)
     {
-        assert(num < NUM_FLOAT_REGS);
-        float_regs[num] = val;
+        instrs_ = decoder_->decode(filename);
     }
 
-    float get_float_reg(int num)
+    void run()
     {
-        assert(num < NUM_FLOAT_REGS);
-        return float_regs[num];
+        int num_to_rum = 1;
+        for (int i = 0; i < num_to_rum; i++)
+        {
+            auto instr = instrs_[memory_->get_pc()];
+            instr->
+        }
     }
 
 private:
-    std::array<int, NUM_INT_REGS> int_regs;
-    std::array<int, NUM_FLOAT_REGS> float_regs;
+    std::shared_ptr<decoder::Decoder> decoder_;
+    std::shared_ptr<memory::Memory> memory_;
+
+    std::vector<std::shared_ptr<isa::Instruction>> instrs_;
 
 }; // class Core
 

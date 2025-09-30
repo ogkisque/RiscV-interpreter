@@ -44,11 +44,6 @@ uint8_t get_rd(uint32_t raw)
     return get_field(raw, 7, 12);
 }
 
-uint8_t get_rd(uint32_t raw)
-{
-    return get_field(raw, 7, 12);
-}
-
 uint8_t get_rs1(uint32_t raw)
 {
     return get_field(raw, 15, 20);
