@@ -16,22 +16,23 @@ enum class InstructionType
     R, I, S, B, U, J
 };
 
-const uint8_t BASE_MATH_OPCODE = 0b0010011;
+const uint8_t BASE_MATH_I_OPCODE = 0b0010011;
+const uint8_t BASE_MATH_R_OPCODE = 0b0110011;
 enum class BaseMathInstructionType
 {
-    ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI_SRAI
+    ADD_SUB, SLT, SLTU, XOR, OR, AND, SLL, SRL_SRA
 };
 
 const std::unordered_map<uint8_t, std::pair<BaseMathInstructionType, std::string>>
 instructions_base_math_map = {
-    {0b000, {BaseMathInstructionType::ADDI, "addi"}},
-    {0b010, {BaseMathInstructionType::SLTI, "slti"}},
-    {0b011, {BaseMathInstructionType::SLTIU, "sltiu"}},
-    {0b100, {BaseMathInstructionType::XORI, "xori"}},
-    {0b110, {BaseMathInstructionType::ORI, "ori"}},
-    {0b111, {BaseMathInstructionType::ANDI, "andi"}},
-    {0b001, {BaseMathInstructionType::SLLI, "slli"}},
-    {0b101, {BaseMathInstructionType::SRLI_SRAI, "srli/srai"}}
+    {0b000, {BaseMathInstructionType::ADD_SUB, "add/sub"}},
+    {0b010, {BaseMathInstructionType::SLT, "slt"}},
+    {0b011, {BaseMathInstructionType::SLTU, "sltu"}},
+    {0b100, {BaseMathInstructionType::XOR, "xor"}},
+    {0b110, {BaseMathInstructionType::OR, "or"}},
+    {0b111, {BaseMathInstructionType::AND, "and"}},
+    {0b001, {BaseMathInstructionType::SLL, "sll"}},
+    {0b101, {BaseMathInstructionType::SRL_SRA, "srl/sra"}}
 };
 
 class Instruction;
@@ -138,13 +139,16 @@ private:
 };
 
 uint32_t exec_lui(memory::Memory& memory, const isa::Instruction& instr);
-
-uint32_t exec_base_math(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_auipc(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
     {0b0110111, {InstructionType::U, "lui", exec_lui}},
-    {BASE_MATH_OPCODE, {InstructionType::I, "base_math", exec_base_math}}
+    {0b0010111, {InstructionType::U, "auipc", exec_auipc}},
+    {BASE_MATH_I_OPCODE, {InstructionType::I, "base_math_i", exec_base_math_i}},
+    {BASE_MATH_R_OPCODE, {InstructionType::R, "base_math_r", exec_base_math_r}},
 };
 
 } // namespace isa
