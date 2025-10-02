@@ -117,6 +117,11 @@ public:
         return base_math_instr_type_.value();
     }
 
+    uint32_t execute(memory::Memory& memory)
+    {
+        return info_.func(memory, *this);
+    }
+
 private:
     RawInstruction raw_;
     InstructionInfo info_;

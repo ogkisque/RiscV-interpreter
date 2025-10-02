@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <cassert>
+#include <cstdio>
+#include <bitset>
 
 namespace helpers
 {
@@ -9,12 +11,11 @@ namespace helpers
 uint32_t bitmask(uint32_t length)
 {
     assert(length <= 32);
-    if (length == 0)
-    {
-        return 0U;
-    }
+    std::bitset<32> mask(0);
+    for (int i = 0; i < length; i++)
+        mask[i] = 1;
 
-    return (1U << length) - 1;
+    return mask.to_ulong();
 }
 
 uint32_t bitmask(uint32_t from, uint32_t to)
@@ -23,10 +24,11 @@ uint32_t bitmask(uint32_t from, uint32_t to)
     assert(to <= 32);
     assert(from < to);
 
-    auto mask1 = bitmask(from);
-    auto mask2 = bitmask(to);
+    std::bitset<32> mask(0);
+    for (int i = from; i < to; i++)
+        mask[i] = 1;
 
-    return mask2 & (~mask1);
+    return mask.to_ulong();
 }
 
 uint32_t get_field(uint32_t val, uint32_t from, uint32_t to)
@@ -66,7 +68,9 @@ uint8_t get_funct7(uint32_t raw)
 
 uint32_t get_imm_i(uint32_t raw)
 {
-    return get_field(raw, 20, 32);
+    auto sign = get_field(raw, 31, 32);
+    auto val = get_field(raw, 20, 31);
+    return sign ? (val | 0xFFFFFA00U) : val;
 }
 
 uint32_t get_imm_s(uint32_t raw)
@@ -89,6 +93,13 @@ uint32_t get_imm_b(uint32_t raw)
 {
     return (get_field(raw, 8, 12) << 1) | (get_field(raw, 25, 31) << 5) |
            (get_field(raw, 7, 8) << 11) | (get_field(raw, 31, 32) << 12);
+}
+
+template <typename To, typename From>
+To bitcast(From val)
+{
+    static_assert(sizeof(To) == sizeof(From));
+    return *(To*)(&val);
 }
 
 } // namespace helpers

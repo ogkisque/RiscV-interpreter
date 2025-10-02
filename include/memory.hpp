@@ -48,13 +48,13 @@ public:
         printf("Int regs:\n");
         for (int i = 0; i < NUM_INT_REGS; i++)
         {
-            printf("r%d = %u (08%08x)\n", i, int_regs_[i], int_regs_[i]);
+            printf("r%2d = %u (0x%08x)\n", i, int_regs_[i], int_regs_[i]);
         }
 
         printf("\nFloat regs:\n");
         for (int i = 0; i < NUM_INT_REGS; i++)
         {
-            printf("r%d = %u (08%08x)\n", i, float_regs_[i], float_regs_[i]);
+            printf("r%2d = %f (0x%08x)\n", i, float_regs_[i], *(uint32_t*)(&float_regs_[i]));
         }
         printf("\n");
     }

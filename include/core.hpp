@@ -11,6 +11,12 @@ namespace core
 class Core
 {
 public:
+    Core()
+    {
+        memory_ = std::make_shared<memory::Memory>();
+        decoder_ = std::make_shared<decoder::Decoder>();
+    }
+
     void dump_instr() const
     {
         for (auto& instr : instrs_)
@@ -31,7 +37,9 @@ public:
         for (int i = 0; i < num_to_rum; i++)
         {
             auto instr = instrs_[memory_->get_pc()];
-            instr->
+            memory_->set_pc(instr->execute(*memory_));
+
+            memory_->dump_regs();
         }
     }
 

@@ -9,6 +9,7 @@ int main(int argc, char** argv)
     core::Core core;
     core.decode(filename);
     core.dump_instr();
+    core.run();
     
     return 0;
 }

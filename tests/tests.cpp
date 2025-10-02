@@ -22,6 +22,9 @@ TEST(Helpers, bits)
     auto mask6 = helpers::bitmask(3, 4) | helpers::bitmask(7, 11);
     ASSERT_EQ(mask6, 0b11110001000);
 
+    auto mask7 = helpers::bitmask(20, 32);
+    ASSERT_EQ(mask7, 0b11111111111100000000000000000000);
+
     uint32_t val = 0b1111001101;
 
     uint32_t field1 = helpers::get_field(val, 0, 3);
