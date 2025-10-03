@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <memory>
+#include <optional>
 
 namespace memory
 {
@@ -103,9 +104,21 @@ public:
     {
         pc_ = val;
     }
+
+    void set_zero_pc(uint32_t pc)
+    {
+        zero_pc_ = pc;
+    }
+
+    uint32_t get_instr_index() const
+    {
+        assert(zero_pc_.has_value());
+        return (pc_ - zero_pc_.value()) / 4;
+    }
 private:
     Registers regs_;
     uint32_t pc_ = 0;
+    std::optional<uint32_t> zero_pc_ = std::nullopt;
 }; // class memory
 
 } // namespace memory

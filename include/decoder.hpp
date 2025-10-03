@@ -64,7 +64,7 @@ private:
         return data[0] | (data[1] << 8);
     }
 
-    void parse_elf(const std::string& filename)
+    void parse_elf(const std::string& filename, uint32_t& start_pc)
     {
         std::ifstream file(filename, std::ios::binary);
         assert(file.is_open());
@@ -82,6 +82,7 @@ private:
             fileData[2] == 'L' && fileData[3] == 'F');
 
         const Elf32Ehdr* ehdr = (const Elf32Ehdr*)(fileData.data());
+        start_pc = ehdr->e_entry;
         
         auto check = readU16(ehdr->e_ident + 18);
         assert(check == 0xF3);
@@ -151,9 +152,10 @@ private:
     }
 
 public:
-    std::vector<std::shared_ptr<isa::Instruction>> decode(const std::string& filename)
+    std::vector<std::shared_ptr<isa::Instruction>>
+    decode(const std::string& filename, uint32_t& start_pc)
     {
-        parse_elf(filename);
+        parse_elf(filename, start_pc);
         return parse_raw();
     }
 

@@ -81,7 +81,7 @@ uint32_t exec_lui(memory::Memory& memory, const isa::Instruction& instr)
     auto imm = instr.get_imm();
 
     memory.set_int_reg(rd, imm);
-    return memory.get_pc() + 1;
+    return memory.get_pc() + INSTR_SIZE;
 }
 
 uint32_t exec_auipc(memory::Memory& memory, const isa::Instruction& instr)
@@ -91,7 +91,7 @@ uint32_t exec_auipc(memory::Memory& memory, const isa::Instruction& instr)
     auto pc = memory.get_pc();
 
     memory.set_int_reg(rd, imm + pc);
-    return pc + 1;
+    return pc + INSTR_SIZE;
 }
 
 uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
@@ -156,7 +156,7 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
     }
 
     memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));
-    return memory.get_pc() + 1;
+    return memory.get_pc() + INSTR_SIZE;
 }
 
 uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
@@ -237,7 +237,45 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
     }
 
     memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));
-    return memory.get_pc() + 1;
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto rs1 = instr.get_rs1();
+    assert(instr.get_funct3() == 0x0);
+
+    uint32_t rs1_val_unsigned = memory.get_int_reg(rs1);
+    int rs1_val_signed = helpers::bitcast<int>(rs1_val_unsigned);
+
+    uint32_t offs_unsigned = instr.get_imm();
+    int offs_signed = (helpers::bitcast<int>(offs_unsigned << 20)) >> 20;
+
+    uint32_t pc = memory.get_pc();
+    uint32_t new_pc = (rs1_val_unsigned + helpers::bitcast<uint32_t>(offs_signed)) & (~1U);
+    if (rd != 0)
+    {
+        memory.set_int_reg(rd, pc + INSTR_SIZE);
+    }
+    return new_pc;
+}
+
+uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = (helpers::bitcast<int>(imm_unsigned << 11)) >> 11;
+
+    uint32_t pc = memory.get_pc();
+    int pc_signed = helpers::bitcast<int>(pc);
+    uint32_t new_pc = helpers::bitcast<uint32_t>(pc_signed + imm_signed);
+
+    if (rd != 0)
+    {
+        memory.set_int_reg(rd, pc + INSTR_SIZE);
+    }
+    return new_pc;
 }
 
 } // namespace isa

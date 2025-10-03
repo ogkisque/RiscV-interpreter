@@ -11,6 +11,8 @@
 namespace isa
 {
 
+const uint32_t INSTR_SIZE = 0x4;
+
 enum class InstructionType
 {
     R, I, S, B, U, J
@@ -142,13 +144,17 @@ uint32_t exec_lui(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_auipc(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
-    {0b0110111, {InstructionType::U, "lui", exec_lui}},
-    {0b0010111, {InstructionType::U, "auipc", exec_auipc}},
-    {BASE_MATH_I_OPCODE, {InstructionType::I, "base_math_i", exec_base_math_i}},
-    {BASE_MATH_R_OPCODE, {InstructionType::R, "base_math_r", exec_base_math_r}},
+    {0b0110111,             {InstructionType::U, "lui", exec_lui}},
+    {0b0010111,             {InstructionType::U, "auipc", exec_auipc}},
+    {BASE_MATH_I_OPCODE,    {InstructionType::I, "base_math_i", exec_base_math_i}},
+    {BASE_MATH_R_OPCODE,    {InstructionType::R, "base_math_r", exec_base_math_r}},
+    {0b1100111,             {InstructionType::I, "jalr", exec_jalr}},
+    {0b1101111,             {InstructionType::J, "jal", exec_jal}}
 };
 
 } // namespace isa

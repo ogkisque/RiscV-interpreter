@@ -28,7 +28,10 @@ public:
 
     void decode(const std::string& filename)
     {
-        instrs_ = decoder_->decode(filename);
+        uint32_t start_pc = 0;
+        instrs_ = decoder_->decode(filename, start_pc);
+        memory_->set_zero_pc(instrs_[0]->get_address());
+        memory_->set_pc(start_pc);
     }
 
     void run()
@@ -36,7 +39,7 @@ public:
         int num_to_rum = 1;
         for (int i = 0; i < num_to_rum; i++)
         {
-            auto instr = instrs_[memory_->get_pc()];
+            auto instr = instrs_[memory_->get_instr_index()];
             memory_->set_pc(instr->execute(*memory_));
 
             memory_->dump_regs();
