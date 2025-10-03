@@ -39,7 +39,10 @@ public:
         int num_to_rum = 1;
         for (int i = 0; i < num_to_rum; i++)
         {
-            auto instr = instrs_[memory_->get_instr_index()];
+            auto instr_id = memory_->get_instr_index();
+            assert(instr_id < instrs_.size());
+            
+            auto instr = instrs_[instr_id];
             memory_->set_pc(instr->execute(*memory_));
 
             memory_->dump_regs();

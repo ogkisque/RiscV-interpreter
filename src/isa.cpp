@@ -64,13 +64,26 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             rs2_ = helpers::get_rs2(code);
             funct3_ = helpers::get_funct3(code);
             imm_ = helpers::get_imm_b(code);
+            if (helpers::get_opcode(raw_instr.code) == BRANCH_OPCODE)
+            {
+                auto it = instructions_branch_map.find(funct3_.value());
+                if (it == instructions_branch_map.end())
+                {
+                    fprintf(stderr, "Unknown base math instruction\n"
+                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
+                                    BRANCH_OPCODE, funct3_.value(), raw_instr.address);
+                    assert(0);
+                }
+                std::tie(branch_instr_type_, additional_name_) = it->second;
+            }
             break;
         case InstructionType::J:
             rd_ = helpers::get_rd(code);
             imm_ = helpers::get_imm_j(code);
             break;
         default:
-
+            fprintf(stderr, "Unknown instruction type\n");
+            assert(0);
             break;
     }
 }
@@ -233,7 +246,11 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
             break;
         }
         default:
+            fprintf(stderr, "Unknown base math r instruction\n"
+                            "Opcode: 0x%08x; funct7 0x%08x\n",
+                            BASE_MATH_R_OPCODE, funct7);
             assert(0);
+            break;
     }
 
     memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));
@@ -276,6 +293,58 @@ uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr)
         memory.set_int_reg(rd, pc + INSTR_SIZE);
     }
     return new_pc;
+}
+
+uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto type = instr.get_branch_instr_type();
+    auto rs1 = instr.get_rs1();
+    auto rs2 = instr.get_rs2();
+
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = (helpers::bitcast<int>(imm_unsigned << 19)) >> 19;
+
+    uint32_t rs1_unsigned = memory.get_int_reg(rs1);
+    uint32_t rs2_unsigned = memory.get_int_reg(rs2);
+    int rs1_signed = helpers::bitcast<int>(rs1_unsigned);
+    int rs2_signed = helpers::bitcast<int>(rs2_unsigned);
+
+    bool need_jump = false;
+    auto pc_unsigned = memory.get_pc();
+    int pc_signed = helpers::bitcast<int>(pc_unsigned);
+
+    switch (type)
+    {
+        case BranchInstructionType::BEQ:
+            need_jump = (rs1_unsigned == rs2_unsigned);
+            break;
+        case BranchInstructionType::BNE:
+            need_jump = (rs1_unsigned != rs2_unsigned);
+            break;
+        case BranchInstructionType::BLT:
+            need_jump = (rs1_signed < rs2_signed);
+            break;
+        case BranchInstructionType::BGE:
+            need_jump = (rs1_signed >= rs2_signed);
+            break;
+        case BranchInstructionType::BLTU:
+            need_jump = (rs1_unsigned < rs2_unsigned);
+            break;
+        case BranchInstructionType::BGEU:
+            need_jump = (rs1_unsigned >= rs2_unsigned);
+            break;
+        default:
+            break;
+    }
+
+    if (need_jump)
+    {
+        return pc_signed + imm_signed;
+    }
+    else
+    {
+        return pc_unsigned + INSTR_SIZE;
+    }
 }
 
 } // namespace isa

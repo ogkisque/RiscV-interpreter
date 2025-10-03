@@ -127,7 +127,7 @@ private:
         std::vector<std::shared_ptr<isa::Instruction>> instrs;
         instrs.reserve(raw_instrs_.size());
 
-        int num_to_parse = 1;
+        int num_to_parse = 100;
         int i = 0;
 
         for (auto& raw_instr : raw_instrs_)

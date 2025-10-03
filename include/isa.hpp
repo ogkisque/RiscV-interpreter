@@ -37,6 +37,22 @@ instructions_base_math_map = {
     {0b101, {BaseMathInstructionType::SRL_SRA, "srl/sra"}}
 };
 
+const uint8_t BRANCH_OPCODE = 0b1100011;
+enum class BranchInstructionType
+{
+    BEQ, BNE, BLT, BGE, BLTU, BGEU
+};
+
+const std::unordered_map<uint8_t, std::pair<BranchInstructionType, std::string>>
+instructions_branch_map = {
+    {0b000, {BranchInstructionType::BEQ, "beq"}},
+    {0b001, {BranchInstructionType::BNE, "bne"}},
+    {0b100, {BranchInstructionType::BLT, "blt"}},
+    {0b101, {BranchInstructionType::BGE, "bge"}},
+    {0b110, {BranchInstructionType::BLTU, "bltu"}},
+    {0b111, {BranchInstructionType::BGEU, "bgeu"}}
+};
+
 class Instruction;
 
 using ExecuteFunction = uint32_t(*)(memory::Memory& memory, const Instruction& instr);
@@ -120,6 +136,12 @@ public:
         return base_math_instr_type_.value();
     }
 
+    BranchInstructionType get_branch_instr_type() const
+    {
+        assert(branch_instr_type_.has_value());
+        return branch_instr_type_.value();
+    }
+
     uint32_t execute(memory::Memory& memory)
     {
         return info_.func(memory, *this);
@@ -137,6 +159,7 @@ private:
     std::optional<uint8_t> rs2_= std::nullopt;
 
     std::optional<BaseMathInstructionType> base_math_instr_type_ = std::nullopt;
+    std::optional<BranchInstructionType> branch_instr_type_ = std::nullopt;
     std::optional<std::string> additional_name_ = std::nullopt;
 };
 
@@ -146,6 +169,7 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
 uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
@@ -154,7 +178,8 @@ instructions_map = {
     {BASE_MATH_I_OPCODE,    {InstructionType::I, "base_math_i", exec_base_math_i}},
     {BASE_MATH_R_OPCODE,    {InstructionType::R, "base_math_r", exec_base_math_r}},
     {0b1100111,             {InstructionType::I, "jalr", exec_jalr}},
-    {0b1101111,             {InstructionType::J, "jal", exec_jal}}
+    {0b1101111,             {InstructionType::J, "jal", exec_jal}},
+    {BRANCH_OPCODE,         {InstructionType::B, "branch", exec_branch}},
 };
 
 } // namespace isa
