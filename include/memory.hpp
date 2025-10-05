@@ -6,6 +6,8 @@
 #include <memory>
 #include <optional>
 
+#include "helpers.hpp"
+
 namespace memory
 {
 
@@ -66,9 +68,62 @@ private:
 
 }; // class Registers
 
+class SimpleMemory
+{
+public:
+    SimpleMemory(size_t size) : data_(size, 0) {}
+
+    uint8_t load8(uint32_t addr) const
+    {
+        assert(addr < data_.size());
+        return data_[addr];
+    }
+
+    uint16_t load16(uint32_t addr) const
+    {
+        assert(addr + 1 < data_.size());
+        return (uint16_t) data_[addr] | ((uint16_t) data_[addr + 1] << 8);
+    }
+
+    uint32_t load32(uint32_t addr) const
+    {
+        assert(addr + 3 < data_.size());
+        return (uint32_t) data_[addr] | ((uint32_t) data_[addr + 1] << 8) |
+               ((uint32_t) data_[addr + 2] << 16) | ((uint32_t) data_[addr + 3] << 24);
+    }
+
+    void store8(uint32_t addr, uint8_t val)
+    {
+        assert(addr < data_.size());
+        data_[addr] = val;
+    }
+
+    void store16(uint32_t addr, uint16_t val)
+    {
+        assert(addr + 1 < data_.size());
+        data_[addr] = val & helpers::bitmask(8);
+        data_[addr + 1] = (val >> 8) & helpers::bitmask(8);
+    }
+
+    void store32(uint32_t addr, uint32_t val)
+    {
+        assert(addr + 3 < data_.size());
+        data_[addr] = val & helpers::bitmask(8);
+        data_[addr + 1] = (val >> 8) & helpers::bitmask(8);
+        data_[addr + 2] = (val >> 16) & helpers::bitmask(8);
+        data_[addr + 3] = (val >> 24) & helpers::bitmask(8);
+    }
+
+private:
+    std::vector<uint8_t> data_;
+
+}; // class SimpleMemory
+
 class Memory
 {
 public:
+    Memory(size_t size) : simple_memory_(size) {}
+
     void set_int_reg(int num, uint32_t val)
     {
         regs_.set_int_reg(num, val);
@@ -95,6 +150,36 @@ public:
         printf("PC = %u\n", pc_);
     }
 
+    uint8_t load8(uint32_t addr) const
+    {
+        return simple_memory_.load8(addr);
+    }
+
+    uint16_t load16(uint32_t addr) const
+    {
+        return simple_memory_.load16(addr);
+    }
+
+    uint32_t load32(uint32_t addr) const
+    {
+        return simple_memory_.load32(addr);
+    }
+
+    void store8(uint32_t addr, uint8_t val)
+    {
+        simple_memory_.store8(addr, val);
+    }
+
+    void store16(uint32_t addr, uint8_t val)
+    {
+        simple_memory_.store16(addr, val);
+    }
+
+    void store32(uint32_t addr, uint8_t val)
+    {
+        simple_memory_.store32(addr, val);
+    }
+
     uint32_t get_pc() const
     {
         return pc_;
@@ -115,8 +200,10 @@ public:
         assert(zero_pc_.has_value());
         return (pc_ - zero_pc_.value()) / 4;
     }
+
 private:
     Registers regs_;
+    SimpleMemory simple_memory_;
     uint32_t pc_ = 0;
     std::optional<uint32_t> zero_pc_ = std::nullopt;
 }; // class memory

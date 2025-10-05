@@ -53,6 +53,34 @@ instructions_branch_map = {
     {0b111, {BranchInstructionType::BGEU, "bgeu"}}
 };
 
+const uint8_t LOAD_OPCODE = 0b0000011;
+enum class LoadInstructionType
+{
+    LB, LH, LW, LBU, LHU
+};
+
+const std::unordered_map<uint8_t, std::pair<LoadInstructionType, std::string>>
+instructions_load_map = {
+    {0b000, {LoadInstructionType::LB, "lb"}},
+    {0b001, {LoadInstructionType::LH, "lh"}},
+    {0b010, {LoadInstructionType::LW, "lw"}},
+    {0b100, {LoadInstructionType::LBU, "lbu"}},
+    {0b101, {LoadInstructionType::LHU, "lhu"}}
+};
+
+const uint8_t STORE_OPCODE = 0b0100011;
+enum class StoreInstructionType
+{
+    SB, SH, SW
+};
+
+const std::unordered_map<uint8_t, std::pair<StoreInstructionType, std::string>>
+instructions_store_map = {
+    {0b000, {StoreInstructionType::SB, "sb"}},
+    {0b001, {StoreInstructionType::SH, "sh"}},
+    {0b010, {StoreInstructionType::SW, "sw"}}
+};
+
 class Instruction;
 
 using ExecuteFunction = uint32_t(*)(memory::Memory& memory, const Instruction& instr);
@@ -142,6 +170,18 @@ public:
         return branch_instr_type_.value();
     }
 
+    LoadInstructionType get_load_instr_type() const
+    {
+        assert(load_instr_type_.has_value());
+        return load_instr_type_.value();
+    }
+
+    StoreInstructionType get_store_instr_type() const
+    {
+        assert(store_instr_type_.has_value());
+        return store_instr_type_.value();
+    }
+
     uint32_t execute(memory::Memory& memory)
     {
         return info_.func(memory, *this);
@@ -160,6 +200,8 @@ private:
 
     std::optional<BaseMathInstructionType> base_math_instr_type_ = std::nullopt;
     std::optional<BranchInstructionType> branch_instr_type_ = std::nullopt;
+    std::optional<LoadInstructionType> load_instr_type_ = std::nullopt;
+    std::optional<StoreInstructionType> store_instr_type_ = std::nullopt;
     std::optional<std::string> additional_name_ = std::nullopt;
 };
 
@@ -170,6 +212,8 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
 uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
@@ -180,6 +224,8 @@ instructions_map = {
     {0b1100111,             {InstructionType::I, "jalr", exec_jalr}},
     {0b1101111,             {InstructionType::J, "jal", exec_jal}},
     {BRANCH_OPCODE,         {InstructionType::B, "branch", exec_branch}},
+    {LOAD_OPCODE,           {InstructionType::I, "load", exec_load}},
+    {STORE_OPCODE,          {InstructionType::S, "store", exec_store}}
 };
 
 } // namespace isa

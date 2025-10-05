@@ -52,6 +52,18 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
                 }
                 std::tie(base_math_instr_type_, additional_name_) = it->second;
             }
+            else if (helpers::get_opcode(raw_instr.code) == LOAD_OPCODE)
+            {
+                auto it = instructions_load_map.find(funct3_.value());
+                if (it == instructions_load_map.end())
+                {
+                    fprintf(stderr, "Unknown load instruction\n"
+                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
+                                    LOAD_OPCODE, funct3_.value(), raw_instr.address);
+                    assert(0);
+                }
+                std::tie(load_instr_type_, additional_name_) = it->second;
+            }
             break;
         case InstructionType::S:
             rs1_ = helpers::get_rs1(code);
@@ -165,7 +177,9 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
             break;
         }
         default:
+            fprintf(stderr, "Unknown base math i instruction\n");
             assert(0);
+            break;
     }
 
     memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));
@@ -345,6 +359,107 @@ uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr)
     {
         return pc_unsigned + INSTR_SIZE;
     }
+}
+
+uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
+    auto rs1 = instr.get_rs1();
+    auto type = instr.get_load_instr_type();
+    int res = 0;
+    int rs1_val_unsigned = memory.get_int_reg(rs1);
+    uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+
+    switch (type)
+    {
+        case LoadInstructionType::LB:
+        {
+            uint8_t data = memory.load8(addr);
+            res = (helpers::bitcast<int>((uint32_t) data << 24)) >> 24;
+            break;
+        }
+        case LoadInstructionType::LH:
+        {
+            uint16_t data = memory.load16(addr);
+            res = (helpers::bitcast<int>((uint32_t) data << 16)) >> 16;
+            break;
+        }
+        case LoadInstructionType::LW:
+        {
+            uint32_t data = memory.load32(addr);
+            res = helpers::bitcast<int>(data);
+            break;
+        }
+        case LoadInstructionType::LBU:
+        {
+            uint8_t data = memory.load8(addr);
+            res = helpers::bitcast<int>((uint32_t) data);
+            break;
+        }
+        case LoadInstructionType::LHU:
+        {
+            uint16_t data = memory.load16(addr);
+            res = helpers::bitcast<int>((uint32_t) data);
+            break;
+        }
+        default:
+        {
+            fprintf(stderr, "Unknown load instruction\n");
+            assert(0);
+            break;
+        }
+    }
+
+    if (rd != 0)
+    {
+        memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto type = instr.get_store_instr_type();
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
+    auto rs1 = instr.get_rs1();
+    int rs1_val_unsigned = memory.get_int_reg(rs1);
+    auto rs2 = instr.get_rs1();
+    int rs2_val_unsigned = memory.get_int_reg(rs2);
+    uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+
+    switch (type)
+    {
+        case StoreInstructionType::SB:
+        {
+            uint8_t data = (uint8_t) (rs2_val_unsigned & helpers::bitmask(8));
+            memory.store8(addr, data);
+            break;
+        }
+        case StoreInstructionType::SH:
+        {
+            uint16_t data = (uint16_t) (rs2_val_unsigned & helpers::bitmask(16));
+            memory.store16(addr, data);
+            break;
+        }
+        case StoreInstructionType::SW:
+        {
+            uint32_t data = rs2_val_unsigned;
+            memory.store32(addr, data);
+            break;
+        }
+        default:
+        {
+            fprintf(stderr, "Unknown store instruction\n");
+            assert(0);
+            break;
+        }
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
 }
 
 } // namespace isa

@@ -13,7 +13,7 @@ class Core
 public:
     Core()
     {
-        memory_ = std::make_shared<memory::Memory>();
+        memory_ = std::make_shared<memory::Memory>(1000);
         decoder_ = std::make_shared<decoder::Decoder>();
     }
 
