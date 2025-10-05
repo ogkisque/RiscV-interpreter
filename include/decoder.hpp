@@ -97,7 +97,6 @@ private:
         {
             const Elf32Shdr* shdr = &shdrTable[i];
             const char* sectionName = shstrtabData + readU32((const unsigned char*)&shdr->sh_name);
-            
             if (std::string(sectionName) == ".text")
             {
                 textSection = shdr;

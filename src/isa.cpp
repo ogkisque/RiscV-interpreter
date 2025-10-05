@@ -462,4 +462,26 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
     return memory.get_pc() + INSTR_SIZE;
 }
 
+uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
+{
+    uint32_t r17 = memory.get_int_reg(17);
+    switch (r17)
+    {
+        case 63: // read
+
+            break;
+        case 64: // write
+            
+            break;
+        case 93: // exit
+            memory.set_exit();
+            break;
+        default:
+            fprintf(stderr, "Unknown ecall instruction\n");
+            assert(0);
+            break;
+    }
+    return memory.get_pc() + INSTR_SIZE;
+}
+
 } // namespace isa

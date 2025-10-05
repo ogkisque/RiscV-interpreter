@@ -214,6 +214,7 @@ uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
@@ -225,7 +226,8 @@ instructions_map = {
     {0b1101111,             {InstructionType::J, "jal", exec_jal}},
     {BRANCH_OPCODE,         {InstructionType::B, "branch", exec_branch}},
     {LOAD_OPCODE,           {InstructionType::I, "load", exec_load}},
-    {STORE_OPCODE,          {InstructionType::S, "store", exec_store}}
+    {STORE_OPCODE,          {InstructionType::S, "store", exec_store}},
+    {0b1110011,             {InstructionType::I, "ecall", exec_ecall}}
 };
 
 } // namespace isa

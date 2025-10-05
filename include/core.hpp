@@ -36,8 +36,7 @@ public:
 
     void run()
     {
-        int num_to_rum = 1;
-        for (int i = 0; i < num_to_rum; i++)
+        while (!memory_->is_exit())
         {
             auto instr_id = memory_->get_instr_index();
             assert(instr_id < instrs_.size());

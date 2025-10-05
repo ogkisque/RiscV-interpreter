@@ -6,8 +6,6 @@
 #include <memory>
 #include <optional>
 
-#include "helpers.hpp"
-
 namespace memory
 {
 
@@ -54,11 +52,11 @@ public:
             printf("r%2d = %u (0x%08x)\n", i, int_regs_[i], int_regs_[i]);
         }
 
-        printf("\nFloat regs:\n");
-        for (int i = 0; i < NUM_INT_REGS; i++)
-        {
-            printf("r%2d = %f (0x%08x)\n", i, float_regs_[i], *(uint32_t*)(&float_regs_[i]));
-        }
+        //printf("\nFloat regs:\n");
+        //for (int i = 0; i < NUM_INT_REGS; i++)
+        //{
+            //printf("r%2d = %f (0x%08x)\n", i, float_regs_[i], *(uint32_t*)(&float_regs_[i]));
+        //}
         printf("\n");
     }
 
@@ -92,27 +90,11 @@ public:
                ((uint32_t) data_[addr + 2] << 16) | ((uint32_t) data_[addr + 3] << 24);
     }
 
-    void store8(uint32_t addr, uint8_t val)
-    {
-        assert(addr < data_.size());
-        data_[addr] = val;
-    }
+    void store8(uint32_t addr, uint8_t val);
 
-    void store16(uint32_t addr, uint16_t val)
-    {
-        assert(addr + 1 < data_.size());
-        data_[addr] = val & helpers::bitmask(8);
-        data_[addr + 1] = (val >> 8) & helpers::bitmask(8);
-    }
+    void store16(uint32_t addr, uint16_t val);
 
-    void store32(uint32_t addr, uint32_t val)
-    {
-        assert(addr + 3 < data_.size());
-        data_[addr] = val & helpers::bitmask(8);
-        data_[addr + 1] = (val >> 8) & helpers::bitmask(8);
-        data_[addr + 2] = (val >> 16) & helpers::bitmask(8);
-        data_[addr + 3] = (val >> 24) & helpers::bitmask(8);
-    }
+    void store32(uint32_t addr, uint32_t val);
 
 private:
     std::vector<uint8_t> data_;
@@ -147,7 +129,7 @@ public:
     void dump_regs() const
     {
         regs_.dump_regs();
-        printf("PC = %u\n", pc_);
+        printf("PC = 0x%08x\n", pc_);
     }
 
     uint8_t load8(uint32_t addr) const
@@ -201,11 +183,22 @@ public:
         return (pc_ - zero_pc_.value()) / 4;
     }
 
+    void set_exit()
+    {
+        exit_ = true;
+    }
+
+    bool is_exit()
+    {
+        return exit_;
+    }
+
 private:
     Registers regs_;
     SimpleMemory simple_memory_;
     uint32_t pc_ = 0;
     std::optional<uint32_t> zero_pc_ = std::nullopt;
+    bool exit_ = false;
 }; // class memory
 
 } // namespace memory
