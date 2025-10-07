@@ -5,13 +5,17 @@
 #include <string>
 #include <utility>
 #include <optional>
+#include <unistd.h>
 
 #include "memory.hpp"
 
 namespace isa
 {
 
-const uint32_t INSTR_SIZE = 0x4;
+const uint32_t INSTR_SIZE =     0x4;
+const int ECALL_READ_CODE =     63;
+const int ECALL_WRITE_CODE =    64;
+const int ECALL_EXIT_CODE =     93;
 
 enum class InstructionType
 {

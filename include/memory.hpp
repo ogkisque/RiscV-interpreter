@@ -5,6 +5,7 @@
 #include <cassert>
 #include <memory>
 #include <optional>
+#include <cstring>
 
 namespace memory
 {
@@ -57,7 +58,7 @@ public:
         //{
             //printf("r%2d = %f (0x%08x)\n", i, float_regs_[i], *(uint32_t*)(&float_regs_[i]));
         //}
-        printf("\n");
+        //printf("\n");
     }
 
 private:
@@ -90,11 +91,39 @@ public:
                ((uint32_t) data_[addr + 2] << 16) | ((uint32_t) data_[addr + 3] << 24);
     }
 
-    void store8(uint32_t addr, uint8_t val);
+    void store8(uint32_t addr, uint8_t val)
+    {
+        assert(addr < data_.size());
+        data_[addr] = val;
+    }
 
-    void store16(uint32_t addr, uint16_t val);
+    void store16(uint32_t addr, uint16_t val)
+    {
+        assert(addr + 1 < data_.size());
+        data_[addr] = val & 0xFF;
+        data_[addr + 1] = (val >> 8) & 0xFF;
+    }
 
-    void store32(uint32_t addr, uint32_t val);
+    void store32(uint32_t addr, uint32_t val)
+    {
+        assert(addr + 3 < data_.size());
+        data_[addr] = val & 0xFF;
+        data_[addr + 1] = (val >> 8) & 0xFF;
+        data_[addr + 2] = (val >> 16) & 0xFF;
+        data_[addr + 3] = (val >> 24) & 0xFF;
+    }
+
+    void read_bytes(uint32_t addr, uint8_t* dst, size_t len) const
+    {
+        assert(uint64_t(addr) + len <= data_.size());
+        std::memcpy(dst, &data_[addr], len);
+    }
+
+    void write_bytes(uint32_t addr, const uint8_t* src, size_t len)
+    {
+        assert(uint64_t(addr) + len <= data_.size());
+        std::memcpy(&data_[addr], src, len);
+    }
 
 private:
     std::vector<uint8_t> data_;
@@ -129,7 +158,7 @@ public:
     void dump_regs() const
     {
         regs_.dump_regs();
-        printf("PC = 0x%08x\n", pc_);
+        printf("PC = 0x%08x\n\n", pc_);
     }
 
     uint8_t load8(uint32_t addr) const

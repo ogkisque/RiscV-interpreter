@@ -70,6 +70,19 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             rs2_ = helpers::get_rs2(code);
             funct3_ = helpers::get_funct3(code);
             imm_ = helpers::get_imm_s(code);
+
+            if (helpers::get_opcode(raw_instr.code) == STORE_OPCODE)
+            {
+                auto it = instructions_store_map.find(funct3_.value());
+                if (it == instructions_store_map.end())
+                {
+                    fprintf(stderr, "Unknown load instruction\n"
+                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
+                                    STORE_OPCODE, funct3_.value(), raw_instr.address);
+                    assert(0);
+                }
+                std::tie(store_instr_type_, additional_name_) = it->second;
+            }
             break;
         case InstructionType::B:
             rs1_ = helpers::get_rs1(code);
@@ -464,22 +477,50 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
 
 uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
 {
-    uint32_t r17 = memory.get_int_reg(17);
-    switch (r17)
-    {
-        case 63: // read
+    uint32_t type = memory.get_int_reg(17);
+    int fd = helpers::bitcast<int>(memory.get_int_reg(10));
+    uint32_t buf_addr = memory.get_int_reg(11);
+    uint32_t count = memory.get_int_reg(12);
 
+    switch (type)
+    {
+        case ECALL_READ_CODE:
+        {
+            std::vector<uint8_t> tmp(count);
+            auto res = read(fd, tmp.data(), count);
+            assert(res >= 0);
+
+            for (ssize_t i = 0; i < res; i++)
+            {
+                memory.store8(buf_addr + i, tmp[i]);
+            }
+            memory.set_int_reg(10, (uint32_t) res);
             break;
-        case 64: // write
-            
+        }
+        case ECALL_WRITE_CODE:
+        {
+            std::vector<uint8_t> tmp(count);
+            for (size_t i = 0; i < count; i++)
+            {
+                tmp[i] = memory.load8(buf_addr + i);
+            }
+
+            auto res = write(fd, tmp.data(), count);
+            assert(res >= 0);
+            memory.set_int_reg(10, (uint32_t) res);
             break;
-        case 93: // exit
+        }
+        case ECALL_EXIT_CODE:
+        {
             memory.set_exit();
             break;
+        }
         default:
+        {
             fprintf(stderr, "Unknown ecall instruction\n");
             assert(0);
             break;
+        }
     }
     return memory.get_pc() + INSTR_SIZE;
 }
