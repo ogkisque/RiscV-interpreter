@@ -13,7 +13,7 @@ class Core
 public:
     Core()
     {
-        memory_ = std::make_shared<memory::Memory>(1000);
+        memory_ = std::make_shared<memory::Memory>();
         decoder_ = std::make_shared<decoder::Decoder>();
     }
 
@@ -29,7 +29,7 @@ public:
     void decode(const std::string& filename)
     {
         uint32_t start_pc = 0;
-        instrs_ = decoder_->decode(filename, start_pc);
+        instrs_ = decoder_->decode(filename, start_pc, memory_);
         memory_->set_zero_pc(instrs_[0]->get_address());
         memory_->set_pc(start_pc);
     }
@@ -38,13 +38,12 @@ public:
     {
         while (!memory_->is_exit())
         {
+            memory_->dump_regs();
             auto instr_id = memory_->get_instr_index();
             assert(instr_id < instrs_.size());
             
             auto instr = instrs_[instr_id];
             memory_->set_pc(instr->execute(*memory_));
-
-            memory_->dump_regs();
         }
     }
 

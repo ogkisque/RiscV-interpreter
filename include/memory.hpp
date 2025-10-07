@@ -50,7 +50,7 @@ public:
         printf("Int regs:\n");
         for (int i = 0; i < NUM_INT_REGS; i++)
         {
-            printf("r%2d = %u (0x%08x)\n", i, int_regs_[i], int_regs_[i]);
+            printf("r%2d = %u (0x%08x) (%d)\n", i, int_regs_[i], int_regs_[i], (int)int_regs_[i]);
         }
 
         //printf("\nFloat regs:\n");
@@ -70,8 +70,6 @@ private:
 class SimpleMemory
 {
 public:
-    SimpleMemory(size_t size) : data_(size, 0) {}
-
     uint8_t load8(uint32_t addr) const
     {
         assert(addr < data_.size());
@@ -93,20 +91,20 @@ public:
 
     void store8(uint32_t addr, uint8_t val)
     {
-        assert(addr < data_.size());
+        ensure_capacity(addr, 1);
         data_[addr] = val;
     }
 
     void store16(uint32_t addr, uint16_t val)
     {
-        assert(addr + 1 < data_.size());
+        ensure_capacity(addr, 2);
         data_[addr] = val & 0xFF;
         data_[addr + 1] = (val >> 8) & 0xFF;
     }
 
     void store32(uint32_t addr, uint32_t val)
     {
-        assert(addr + 3 < data_.size());
+        ensure_capacity(addr, 4);
         data_[addr] = val & 0xFF;
         data_[addr + 1] = (val >> 8) & 0xFF;
         data_[addr + 2] = (val >> 16) & 0xFF;
@@ -121,8 +119,27 @@ public:
 
     void write_bytes(uint32_t addr, const uint8_t* src, size_t len)
     {
-        assert(uint64_t(addr) + len <= data_.size());
+        if (len == 0)
+        {
+            return;
+        }
+        ensure_capacity(addr, len);
         std::memcpy(&data_[addr], src, len);
+    }
+
+    void ensure_capacity(uint32_t addr, size_t len = 1)
+    {
+        uint64_t need = uint64_t(addr) + uint64_t(len);
+        if (need == 0)
+        {
+            return;
+        }
+
+        if (need > data_.size())
+        {
+            size_t new_size = std::max<uint64_t>(need, std::max<uint64_t>(data_.size() * 2, 0x10000));
+            data_.resize(new_size, 0);
+        }
     }
 
 private:
@@ -133,8 +150,6 @@ private:
 class Memory
 {
 public:
-    Memory(size_t size) : simple_memory_(size) {}
-
     void set_int_reg(int num, uint32_t val)
     {
         regs_.set_int_reg(num, val);
@@ -189,6 +204,21 @@ public:
     void store32(uint32_t addr, uint8_t val)
     {
         simple_memory_.store32(addr, val);
+    }
+
+    void read_bytes(uint32_t addr, uint8_t* dst, size_t len) const
+    {
+        simple_memory_.read_bytes(addr, dst, len);
+    }
+
+    void write_bytes(uint32_t addr, const uint8_t* src, size_t len)
+    {
+        simple_memory_.write_bytes(addr, src, len);
+    }
+
+    void ensure_capacity(uint32_t addr, size_t len = 1)
+    {
+        simple_memory_.ensure_capacity(addr, len);
     }
 
     uint32_t get_pc() const

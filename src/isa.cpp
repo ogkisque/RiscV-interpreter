@@ -319,6 +319,7 @@ uint32_t exec_jal(memory::Memory& memory, const isa::Instruction& instr)
     {
         memory.set_int_reg(rd, pc + INSTR_SIZE);
     }
+
     return new_pc;
 }
 
