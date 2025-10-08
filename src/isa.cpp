@@ -298,6 +298,8 @@ uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr)
 
     uint32_t pc = memory.get_pc();
     uint32_t new_pc = (rs1_val_unsigned + helpers::bitcast<uint32_t>(offs_signed)) & (~1U);
+    fprintf(stderr, "JALR INSTR; rs1 0x%08x (r%u); imm 0x%08x; new pc 0x%08x\n",
+            rs1_val_unsigned, rs1, helpers::bitcast<uint32_t>(offs_signed), new_pc);
     if (rd != 0)
     {
         memory.set_int_reg(rd, pc + INSTR_SIZE);
@@ -385,6 +387,8 @@ uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr)
     int res = 0;
     int rs1_val_unsigned = memory.get_int_reg(rs1);
     uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+    fprintf(stderr, "LOAD INSTR; rs1 0x%08x; imm 0x%08x; addr 0x%08x\n",
+            rs1_val_unsigned, helpers::bitcast<uint32_t>(imm_signed), addr);
 
     switch (type)
     {
@@ -440,10 +444,12 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
     uint32_t imm_unsigned = instr.get_imm();
     int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
     auto rs1 = instr.get_rs1();
-    int rs1_val_unsigned = memory.get_int_reg(rs1);
-    auto rs2 = instr.get_rs1();
-    int rs2_val_unsigned = memory.get_int_reg(rs2);
+    auto rs1_val_unsigned = memory.get_int_reg(rs1);
+    auto rs2 = instr.get_rs2();
+    auto rs2_val_unsigned = memory.get_int_reg(rs2);
     uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+    fprintf(stderr, "STORE INSTR; rs1 0x%08x; imm 0x%08x; addr 0x%08x; val 0x%08x\n",
+            rs1_val_unsigned, helpers::bitcast<uint32_t>(imm_signed), addr, rs2_val_unsigned);
 
     switch (type)
     {
@@ -462,6 +468,7 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
         case StoreInstructionType::SW:
         {
             uint32_t data = rs2_val_unsigned;
+            fprintf(stderr, "DATA 0x%08x\n", data);
             memory.store32(addr, data);
             break;
         }

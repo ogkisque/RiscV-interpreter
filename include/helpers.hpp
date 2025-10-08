@@ -75,7 +75,7 @@ uint32_t get_imm_i(uint32_t raw)
 
 uint32_t get_imm_s(uint32_t raw)
 {
-    return get_field(raw, 7, 12) | get_field(raw, 25, 32);
+    return get_field(raw, 7, 12) | (get_field(raw, 25, 32) << 5);
 }
 
 uint32_t get_imm_u(uint32_t raw)

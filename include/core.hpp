@@ -21,7 +21,7 @@ public:
     {
         for (auto& instr : instrs_)
         {
-            printf("address: 0x%08x; code: 0x%08x; name: %s\n",
+            fprintf(stderr, "address: 0x%08x; code: 0x%08x; name: %s\n",
                     instr->get_address(), instr->get_raw_code(), instr->get_name().c_str());
         }
     }
