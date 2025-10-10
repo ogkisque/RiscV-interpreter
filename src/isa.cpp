@@ -24,15 +24,30 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             funct7_ = helpers::get_funct7(code);
             if (helpers::get_opcode(raw_instr.code) == BASE_MATH_R_OPCODE)
             {
-                auto it = instructions_base_math_map.find(funct3_.value());
-                if (it == instructions_base_math_map.end())
+                if (funct7_.value() == MUL_MATH_FUNCT7)
                 {
-                    fprintf(stderr, "Unknown base math instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
+                    auto it = instructions_mul_math_map.find(funct3_.value());
+                    if (it == instructions_mul_math_map.end())
+                    {
+                        fprintf(stderr, "Unknown mul math instruction\n"
+                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
+                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
+                        assert(0);
+                    }
+                    std::tie(mul_math_instr_type_, additional_name_) = it->second;
+                    }
+                else
+                {
+                    auto it = instructions_base_math_map.find(funct3_.value());
+                    if (it == instructions_base_math_map.end())
+                    {
+                        fprintf(stderr, "Unknown base math instruction\n"
+                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
+                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
+                        assert(0);
+                    }
+                    std::tie(base_math_instr_type_, additional_name_) = it->second;
                 }
-                std::tie(base_math_instr_type_, additional_name_) = it->second;
             }
             break;
         case InstructionType::I:
@@ -204,80 +219,179 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
     auto rd = instr.get_rd();
     auto rs1 = instr.get_rs1();
     auto rs2 = instr.get_rs2();
-    auto type = instr.get_base_math_instr_type();
     auto funct7 = instr.get_funct7();
     int res = 0;
     int rs1_val_unsigned = memory.get_int_reg(rs1);
     int rs1_val_signed = helpers::bitcast<int>(rs1_val_unsigned);
     int rs2_val_unsigned = memory.get_int_reg(rs2);
     int rs2_val_signed = helpers::bitcast<int>(rs2_val_unsigned);
-    
-    switch (type)
+
+    if (funct7 == MUL_MATH_FUNCT7)
     {
-        case BaseMathInstructionType::ADD_SUB:
-            if (funct7 == 0x20) // SUB
+        auto type = instr.get_mul_math_instr_type();
+        switch (type)
+        {
+            case MulMathInstructionType::MUL:
             {
-                res = rs1_val_signed - rs2_val_signed;
+                res = helpers::bitcast<int>((uint32_t)((uint64_t)rs1_val_unsigned * (uint64_t)rs2_val_unsigned));
+                break;
             }
-            else if (funct7 == 0x0) // ADD
+            case MulMathInstructionType::MULH:
             {
-                res = rs1_val_signed + rs2_val_signed;
+                int64_t a = (int64_t) rs1_val_signed;
+                int64_t b = (int64_t) rs2_val_signed;
+                int64_t tmp = a * b;
+                res = helpers::bitcast<int>((uint32_t)((uint64_t) tmp >> 32));
+                break;
             }
-            else
+            case MulMathInstructionType::MULHSU:
             {
+                int64_t a = (int64_t) rs1_val_signed;
+                int64_t b = (int64_t) rs2_val_unsigned;
+                int64_t tmp = a * b;
+                res = helpers::bitcast<int>((uint32_t)((uint64_t) tmp >> 32));
+                break;
+            }
+            case MulMathInstructionType::MULHU:
+            {
+                uint64_t a = (uint64_t) rs1_val_unsigned;
+                uint64_t b = (uint64_t) rs2_val_unsigned;
+                uint64_t tmp = a * b;
+                res = helpers::bitcast<int>((uint32_t)(tmp >> 32));
+                break;
+            }
+            case MulMathInstructionType::DIV:
+            {
+                if (rs2_val_signed == 0)
+                {
+                    res = -1;
+                }
+                else if (rs1_val_signed == INT32_MIN && rs2_val_signed == -1) {
+                    res = INT32_MIN;
+                }
+                else
+                {
+                    res = rs1_val_signed / rs2_val_signed;
+                }
+                break;
+            }
+            case MulMathInstructionType::DIVU:
+            {
+                if (rs2_val_unsigned == 0U)
+                {
+                    res = helpers::bitcast<int>(UINT32_MAX);
+                }
+                else
+                {
+                    res = helpers::bitcast<int>(rs1_val_unsigned / rs2_val_unsigned);
+                }
+                break;
+            }
+            case MulMathInstructionType::REM:
+            {
+                if (rs2_val_signed == 0)
+                {
+                    res = rs1_val_signed;
+                }
+                else if (rs1_val_signed == INT32_MIN && rs2_val_signed == -1)
+                {
+                    res = 0;
+                }
+                else
+                {
+                    res = rs1_val_signed % rs2_val_signed;
+                }
+                break;
+            }
+            case MulMathInstructionType::REMU:
+            {
+                if (rs2_val_unsigned == 0U)
+                {
+                    res = rs1_val_signed;
+                }
+                res = helpers::bitcast<int>(rs1_val_unsigned % rs2_val_unsigned);
+                break;
+            }
+            default:
+            {
+                fprintf(stderr, "Unknown mul math instruction\n"
+                                "Opcode: 0x%08x; funct7 0x%08x\n",
+                                BASE_MATH_R_OPCODE, funct7);
+                assert(0);
+                break;
+            }
+        }
+    }
+    else
+    {
+        auto type = instr.get_base_math_instr_type();
+        switch (type)
+        {
+            case BaseMathInstructionType::ADD_SUB:
+                if (funct7 == 0x20) // SUB
+                {
+                    res = rs1_val_signed - rs2_val_signed;
+                }
+                else if (funct7 == 0x0) // ADD
+                {
+                    res = rs1_val_signed + rs2_val_signed;
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown base math r instruction\n"
+                                    "Opcode: 0x%08x; funct7 0x%08x\n",
+                                    BASE_MATH_R_OPCODE, funct7);
+                    assert(0);
+                }
+                break;
+            case BaseMathInstructionType::SLT:
+                res = rs1_val_signed < rs2_val_signed ? 1 : 0;
+                break;
+            case BaseMathInstructionType::SLTU:
+                res = rs1_val_unsigned < rs2_val_unsigned ? 1 : 0;
+                break;
+            case BaseMathInstructionType::AND:
+                res = rs1_val_signed & rs2_val_signed;
+                break;
+            case BaseMathInstructionType::OR:
+                res = rs1_val_signed | rs2_val_signed;
+                break;
+            case BaseMathInstructionType::XOR:
+                res = rs1_val_signed ^ rs2_val_signed;
+                break;
+            case BaseMathInstructionType::SLL:
+            {
+                uint32_t shamt = rs2_val_unsigned & 0x1F;
+                res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
+                break;
+            }
+            case BaseMathInstructionType::SRL_SRA:
+            {
+                uint32_t shamt = rs2_val_unsigned & 0x1F;
+                if (funct7 == 0x20) // SRA
+                {
+                    res = helpers::bitcast<int>(rs1_val_signed >> shamt);
+                }
+                else if (funct7 == 0x0) // SRL
+                {
+                    res = helpers::bitcast<int>(rs1_val_unsigned >> shamt);
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown base math r instruction\n"
+                                    "Opcode: 0x%08x; funct7 0x%08x\n",
+                                    BASE_MATH_R_OPCODE, funct7);
+                    assert(0);
+                }
+                break;
+            }
+            default:
                 fprintf(stderr, "Unknown base math r instruction\n"
                                 "Opcode: 0x%08x; funct7 0x%08x\n",
                                 BASE_MATH_R_OPCODE, funct7);
                 assert(0);
-            }
-            break;
-        case BaseMathInstructionType::SLT:
-            res = rs1_val_signed < rs2_val_signed ? 1 : 0;
-            break;
-        case BaseMathInstructionType::SLTU:
-            res = rs1_val_unsigned < rs2_val_unsigned ? 1 : 0;
-            break;
-        case BaseMathInstructionType::AND:
-            res = rs1_val_signed & rs2_val_signed;
-            break;
-        case BaseMathInstructionType::OR:
-            res = rs1_val_signed | rs2_val_signed;
-            break;
-        case BaseMathInstructionType::XOR:
-            res = rs1_val_signed ^ rs2_val_signed;
-            break;
-        case BaseMathInstructionType::SLL:
-        {
-            uint32_t shamt = rs2_val_unsigned & 0x1F;
-            res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
-            break;
+                break;
         }
-        case BaseMathInstructionType::SRL_SRA:
-        {
-            uint32_t shamt = rs2_val_unsigned & 0x1F;
-            if (funct7 == 0x20) // SRA
-            {
-                res = helpers::bitcast<int>(rs1_val_signed >> shamt);
-            }
-            else if (funct7 == 0x0) // SRL
-            {
-                res = helpers::bitcast<int>(rs1_val_unsigned >> shamt);
-            }
-            else
-            {
-                fprintf(stderr, "Unknown base math r instruction\n"
-                                "Opcode: 0x%08x; funct7 0x%08x\n",
-                                BASE_MATH_R_OPCODE, funct7);
-                assert(0);
-            }
-            break;
-        }
-        default:
-            fprintf(stderr, "Unknown base math r instruction\n"
-                            "Opcode: 0x%08x; funct7 0x%08x\n",
-                            BASE_MATH_R_OPCODE, funct7);
-            assert(0);
-            break;
     }
 
     memory.set_int_reg(rd, helpers::bitcast<uint32_t>(res));

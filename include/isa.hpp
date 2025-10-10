@@ -12,10 +12,11 @@
 namespace isa
 {
 
-const uint32_t INSTR_SIZE =     0x4;
-const int ECALL_READ_CODE =     63;
-const int ECALL_WRITE_CODE =    64;
-const int ECALL_EXIT_CODE =     93;
+const uint32_t INSTR_SIZE =         0x4;
+const int ECALL_READ_CODE =         3;
+const int ECALL_WRITE_CODE =        64;
+const int ECALL_EXIT_CODE =         93;
+const uint32_t MUL_MATH_FUNCT7 =    0b1;
 
 enum class InstructionType
 {
@@ -24,6 +25,7 @@ enum class InstructionType
 
 const uint8_t BASE_MATH_I_OPCODE = 0b0010011;
 const uint8_t BASE_MATH_R_OPCODE = 0b0110011;
+
 enum class BaseMathInstructionType
 {
     ADD_SUB, SLT, SLTU, XOR, OR, AND, SLL, SRL_SRA
@@ -39,6 +41,23 @@ instructions_base_math_map = {
     {0b111, {BaseMathInstructionType::AND, "and"}},
     {0b001, {BaseMathInstructionType::SLL, "sll"}},
     {0b101, {BaseMathInstructionType::SRL_SRA, "srl/sra"}}
+};
+
+enum class MulMathInstructionType
+{
+    MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
+};
+
+const std::unordered_map<uint8_t, std::pair<MulMathInstructionType, std::string>>
+instructions_mul_math_map = {
+    {0b000, {MulMathInstructionType::MUL, "mul"}},
+    {0b001, {MulMathInstructionType::MULH, "mulh"}},
+    {0b010, {MulMathInstructionType::MULHSU, "mulhsu"}},
+    {0b011, {MulMathInstructionType::MULHU, "mulhu"}},
+    {0b100, {MulMathInstructionType::DIV, "div"}},
+    {0b101, {MulMathInstructionType::DIVU, "divu"}},
+    {0b110, {MulMathInstructionType::REM, "rem"}},
+    {0b111, {MulMathInstructionType::REMU, "remu"}}
 };
 
 const uint8_t BRANCH_OPCODE = 0b1100011;
@@ -168,6 +187,12 @@ public:
         return base_math_instr_type_.value();
     }
 
+    MulMathInstructionType get_mul_math_instr_type() const
+    {
+        assert(mul_math_instr_type_.has_value());
+        return mul_math_instr_type_.value();
+    }
+
     BranchInstructionType get_branch_instr_type() const
     {
         assert(branch_instr_type_.has_value());
@@ -206,6 +231,7 @@ private:
     std::optional<BranchInstructionType> branch_instr_type_ = std::nullopt;
     std::optional<LoadInstructionType> load_instr_type_ = std::nullopt;
     std::optional<StoreInstructionType> store_instr_type_ = std::nullopt;
+    std::optional<MulMathInstructionType> mul_math_instr_type_ = std::nullopt;
     std::optional<std::string> additional_name_ = std::nullopt;
 };
 
