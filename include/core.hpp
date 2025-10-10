@@ -38,7 +38,7 @@ public:
     {
         while (!memory_->is_exit())
         {
-            memory_->dump_regs();
+            //memory_->dump_regs();
             auto instr_id = memory_->get_instr_index();
             assert(instr_id < instrs_.size());
             

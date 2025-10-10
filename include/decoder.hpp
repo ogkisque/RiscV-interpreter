@@ -193,9 +193,6 @@ private:
         std::vector<std::shared_ptr<isa::Instruction>> instrs;
         instrs.reserve(raw_instrs_.size());
 
-        int num_to_parse = 100;
-        int i = 0;
-
         for (auto& raw_instr : raw_instrs_)
         {
             uint8_t opcode = raw_instr.code & 0x7F;
@@ -208,10 +205,6 @@ private:
             }
             auto instr_info = it->second;
             instrs.push_back(std::make_shared<isa::Instruction>(raw_instr, instr_info));
-
-            i++;
-            if (i >= num_to_parse)
-                break;
         }
 
         return instrs;

@@ -8,7 +8,7 @@ int main(int argc, char** argv)
     std::string filename(argv[1]);
     core::Core core;
     core.decode(filename);
-    core.dump_instr();
+    //core.dump_instr();
     core.run();
     
     return 0;

@@ -85,10 +85,10 @@ public:
 
     uint32_t load32(uint32_t addr) const
     {
-        fprintf(stderr, "LOAD ADDR 0x%08x; SIZE 0x%16lx\n", addr, data_.size());
+        //fprintf(stderr, "LOAD ADDR 0x%08x; SIZE 0x%16lx\n", addr, data_.size());
         assert(addr + 3 < data_.size());
-        fprintf(stderr, "LOAD VALUES 0x%02x 0x%02x 0x%02x 0x%02x\n",
-                data_[addr], data_[addr+1], data_[addr+2], data_[addr+3]);
+        //fprintf(stderr, "LOAD VALUES 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                //data_[addr], data_[addr+1], data_[addr+2], data_[addr+3]);
         return (uint32_t) data_[addr] | ((uint32_t) data_[addr + 1] << 8) |
                ((uint32_t) data_[addr + 2] << 16) | ((uint32_t) data_[addr + 3] << 24);
     }
@@ -109,13 +109,13 @@ public:
     void store32(uint32_t addr, uint32_t val)
     {
         ensure_capacity(addr, 4);
-        fprintf(stderr, "STORE ADDR 0x%08x; SIZE 0x%16lx; val 0x%08x\n", addr, data_.size(), val);
+        //fprintf(stderr, "STORE ADDR 0x%08x; SIZE 0x%16lx; val 0x%08x\n", addr, data_.size(), val);
         data_[addr] = val & 0xFF;
         data_[addr + 1] = (val >> 8) & 0xFF;
         data_[addr + 2] = (val >> 16) & 0xFF;
         data_[addr + 3] = (val >> 24) & 0xFF;
-        fprintf(stderr, "STORE VALUES 0x%02x 0x%02x 0x%02x 0x%02x\n",
-                data_[addr], data_[addr+1], data_[addr+2], data_[addr+3]);
+        //fprintf(stderr, "STORE VALUES 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                //data_[addr], data_[addr+1], data_[addr+2], data_[addr+3]);
     }
 
     void read_bytes(uint32_t addr, uint8_t* dst, size_t len) const
