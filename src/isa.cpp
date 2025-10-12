@@ -781,4 +781,206 @@ uint32_t exec_fnmsub(memory::Memory& memory, const isa::Instruction& instr)
     return memory.get_pc() + INSTR_SIZE;
 }
 
+uint32_t exec_f_base_math(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto type = instr.get_f_base_math_instr_type();
+    auto rs1 = instr.get_rs1();
+    float rs1_val = memory.get_float_reg(rs1);
+    auto rs2 = instr.get_rs2();
+    auto rd = instr.get_rd();
+    float res = 0.0;
+    auto funct3 = instr.get_funct3();
+    bool int_rd = false;
+    uint32_t int_res = 0;
+
+    switch (type)
+    {
+        case FBaseMathInstructionType::FADD:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            helpers::set_round(funct3);
+            res = rs1_val + rs2_val;
+            break;
+        }
+        case FBaseMathInstructionType::FSUB:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            helpers::set_round(funct3);
+            res = rs1_val - rs2_val;
+            break;
+        }
+        case FBaseMathInstructionType::FMUL:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            helpers::set_round(funct3);
+            res = rs1_val * rs2_val;
+            break;
+        }
+        case FBaseMathInstructionType::FDIV:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            helpers::set_round(funct3);
+            res = rs1_val / rs2_val;
+            break;
+        }
+        case FBaseMathInstructionType::FSQRT:
+        {
+            if (helpers::is_f_snan(rs1_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            helpers::set_round(funct3);
+            res = std::sqrt(rs1_val);
+            break;
+        }
+        case FBaseMathInstructionType::FSGNJ:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            uint32_t rs1_unsigned = helpers::bitcast<uint32_t>(rs1_val);
+            uint32_t rs2_unsigned = helpers::bitcast<uint32_t>(rs2_val);
+            uint32_t sign, mant_exp;
+            switch (funct3)
+            {
+                case 0b000: // fsgnj.s
+                    sign = (rs2_unsigned >> 31) & 1U;
+                    mant_exp = rs1_unsigned & 0x7FFFFFFFU;
+                    break;
+                case 0b001: // fsgnjn.s
+                    sign = (~(rs2_unsigned >> 31)) & 1U;
+                    mant_exp = rs1_unsigned & 0x7FFFFFFFU;
+                    break;
+                case 0b010: // fsgnjx.s
+                    sign = ((rs1_unsigned >> 31) ^ (rs2 >> 31)) & 1U;
+                    mant_exp = rs1_unsigned & 0x7FFFFFFFU;
+                    break;
+                default:
+                    fprintf(stderr, "Unknown fsgnj instruction\nCode: 0x%08x, addr: 0x%08x, funct3: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), funct3);
+                    assert(0);
+                    break;
+            }
+            res = helpers::bitcast<float>(mant_exp | (sign << 31));
+            break;
+        }
+        case FBaseMathInstructionType::FMIN_FMAX:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) && helpers::is_f_snan(rs2_val))
+            {
+                res = helpers::bitcast<float>(CANONICAL_NAN);
+                break;
+            }
+            else if (helpers::is_f_snan(rs1_val))
+            {
+                res = rs2_val;
+                break;
+            }
+            else if (helpers::is_f_snan(rs2_val))
+            {
+                res = rs1_val;
+                break;
+            }
+
+            switch (funct3)
+            {
+                case 0b000: // fmin
+                    res = std::fminf(rs1_val, rs2_val);
+                    break;
+                case 0b001: // fmax
+                    res = std::fmaxf(rs1_val, rs2_val);
+                    break;
+                default:
+                    fprintf(stderr, "Unknown fmax_fmin instruction\nCode: 0x%08x, addr: 0x%08x, funct3: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), funct3);
+                    assert(0);
+                    break;
+            }
+            break;
+        }
+        case FBaseMathInstructionType::FCVT_W_S:
+        {
+            int_rd = true;
+            switch (rs2)
+            {
+                case 0b0: // fcvt_w_s
+                    if (helpers::is_f_snan(rs1_val))
+                    {
+                        int_res = helpers::bitcast<uint32_t>(INT32_MAX);
+                    }
+                    helpers::set_round(funct3);
+                    int_res = static_cast<uint32_t>(static_cast<int32_t>(std::rintf(rs1_val)));
+                    break;
+                case 0b1: // fcvt_wu_s
+                    if (helpers::is_f_nan(rs1_val))
+                    {
+                        int_res = UINT32_MAX;
+                    }
+                    helpers::set_round(funct3);
+                    int_res = static_cast<uint32_t>(std::rintf(rs1_val));
+                    break;
+                default:
+                    fprintf(stderr, "Unknown fcvt_w_s instruction\nCode: 0x%08x, addr: 0x%08x, rs2: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), rs2);
+                    assert(0);
+                    break;
+            }
+            break;
+        }
+        case FBaseMathInstructionType::FMV_X_W_FCLASS:
+        {
+            
+            break;
+        }
+        case FBaseMathInstructionType::FEQ_FLT_FLE:
+        {
+            float rs2_val = memory.get_float_reg(rs2);
+            if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
+            {
+                res = 0.0;
+                break;
+            }
+            break;
+        }
+        case FBaseMathInstructionType::FCVT_S_W:
+        {
+            
+            break;
+        }
+        case FBaseMathInstructionType::FMV_W_X:
+        {
+            
+            break;
+        }
+        default:
+        {
+            fprintf(stderr, "Unknown mul math instruction\n"
+                            "Code: 0x%08x; addr: 0x%08x; funct7 0x%02x\n",
+                            instr.get_raw_code(), instr.get_address(), instr.get_funct7());
+            assert(0);
+            break;
+        }
+    }
+}
+
 } // namespace isa

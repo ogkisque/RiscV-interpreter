@@ -105,6 +105,29 @@ instructions_store_map = {
     {0b010, {StoreInstructionType::SW, "sw"}}
 };
 
+const uint8_t F_BASE_MATH_OPCODE = 0b1010011;
+enum class FBaseMathInstructionType
+{
+    FADD, FSUB, FMUL, FDIV, FSQRT, FSGNJ, FMIN_FMAX,
+    FCVT_W_S, FMV_X_W_FCLASS, FEQ_FLT_FLE, FCVT_S_W, FMV_W_X
+};
+
+const std::unordered_map<uint8_t, std::pair<FBaseMathInstructionType, std::string>>
+instructions_f_base_math_map = {
+    {0b0000000, {FBaseMathInstructionType::FADD, "fadd"}},
+    {0b0000100, {FBaseMathInstructionType::FSUB, "fsub"}},
+    {0b0001100, {FBaseMathInstructionType::FMUL, "fmul"}},
+    {0b0000000, {FBaseMathInstructionType::FDIV, "fdiv"}},
+    {0b0101100, {FBaseMathInstructionType::FSQRT, "fsqrt"}},
+    {0b0010000, {FBaseMathInstructionType::FSGNJ, "fsgnj"}},
+    {0b0010100, {FBaseMathInstructionType::FMIN_FMAX, "fmin/fmax"}},
+    {0b1100000, {FBaseMathInstructionType::FCVT_W_S, "fcvt_w_s"}},
+    {0b1110000, {FBaseMathInstructionType::FMV_X_W_FCLASS, "fmv_x_w/fclass"}},
+    {0b1010000, {FBaseMathInstructionType::FEQ_FLT_FLE, "feq/flt/fle"}},
+    {0b1101000, {FBaseMathInstructionType::FCVT_S_W, "fcvt_s_w"}},
+    {0b1111000, {FBaseMathInstructionType::FMV_W_X, "fmv_w_x"}}
+};
+
 const uint32_t CANONICAL_NAN = 0x7FC00000;
 
 class Instruction;
@@ -196,6 +219,12 @@ public:
         return base_math_instr_type_.value();
     }
 
+    FBaseMathInstructionType get_f_base_math_instr_type() const
+    {
+        assert(f_base_math_instr_type_.has_value());
+        return f_base_math_instr_type_.value();
+    }
+
     MulMathInstructionType get_mul_math_instr_type() const
     {
         assert(mul_math_instr_type_.has_value());
@@ -242,6 +271,7 @@ private:
     std::optional<LoadInstructionType> load_instr_type_ = std::nullopt;
     std::optional<StoreInstructionType> store_instr_type_ = std::nullopt;
     std::optional<MulMathInstructionType> mul_math_instr_type_ = std::nullopt;
+    std::optional<FBaseMathInstructionType> f_base_math_instr_type_ = std::nullopt;
     std::optional<std::string> additional_name_ = std::nullopt;
 };
 
@@ -261,6 +291,7 @@ uint32_t exec_fmadd(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_fmsub(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_fnmadd(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_fnmsub(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_f_base_math(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
@@ -279,7 +310,8 @@ instructions_map = {
     {0b1000011,             {InstructionType::R4, "fmadd_s", exec_fmadd}},
     {0b1000111,             {InstructionType::R4, "fmsub_s", exec_fmsub}},
     {0b1001111,             {InstructionType::R4, "fnmadd_s", exec_fnmadd}},
-    {0b1001011,             {InstructionType::R4, "fnmsub_s", exec_fnmsub}}
+    {0b1001011,             {InstructionType::R4, "fnmsub_s", exec_fnmsub}},
+    {F_BASE_MATH_OPCODE,    {InstructionType::R, "f_base_math", exec_f_base_math}}
 };
 
 } // namespace isa
