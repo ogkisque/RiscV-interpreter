@@ -121,6 +121,14 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             rd_ = helpers::get_rd(code);
             imm_ = helpers::get_imm_j(code);
             break;
+        case InstructionType::R4:
+            rd_ = helpers::get_rd(code);
+            rs1_ = helpers::get_rs1(code);
+            rs2_ = helpers::get_rs2(code);
+            rs3_ = helpers::get_rs3(code);
+            funct3_ = helpers::get_funct3(code);
+            funct7_ = helpers::get_funct7(code);
+            break;
         default:
             fprintf(stderr, "Unknown instruction type\n");
             assert(0);
@@ -562,8 +570,6 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
     auto rs2 = instr.get_rs2();
     auto rs2_val_unsigned = memory.get_int_reg(rs2);
     uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
-    //fprintf(stderr, "STORE INSTR; rs1 0x%08x; imm 0x%08x; addr 0x%08x; val 0x%08x\n",
-            //rs1_val_unsigned, helpers::bitcast<uint32_t>(imm_signed), addr, rs2_val_unsigned);
 
     switch (type)
     {
@@ -643,6 +649,135 @@ uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
             break;
         }
     }
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_f_load(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
+    auto rs1 = instr.get_rs1();
+    auto funct3 = instr.get_funct3();
+    assert(funct3 == 0b010);
+    int rs1_val_unsigned = memory.get_int_reg(rs1);
+    uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+
+    uint32_t data = memory.load32(addr);
+    memory.set_float_reg(rd, helpers::bitcast<float>(data));
+
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_f_store(memory::Memory& memory, const isa::Instruction& instr)
+{
+    uint32_t imm_unsigned = instr.get_imm();
+    int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
+    auto rs1 = instr.get_rs1();
+    auto rs1_val_unsigned = memory.get_int_reg(rs1);
+    auto rs2 = instr.get_rs2();
+    auto rs2_val = memory.get_float_reg(rs2);
+    uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
+    auto funct3 = instr.get_funct3();
+    assert(funct3 == 0b010);
+
+    memory.store32(addr, helpers::bitcast<uint32_t>(rs2_val));
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_fmadd(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto rs1 = instr.get_rs1();
+    auto rs2 = instr.get_rs2();
+    auto rs3 = instr.get_rs3();
+    float rs1_val = memory.get_float_reg(rs1);
+    float rs2_val = memory.get_float_reg(rs2);
+    float rs3_val = memory.get_float_reg(rs3);
+    float res = 0.0;
+
+    if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val) || helpers::is_f_snan(rs3_val))
+    {
+        res = helpers::bitcast<float>(CANONICAL_NAN);
+    }
+    else
+    {
+        helpers::set_round(instr.get_funct3());
+        res = std::fma(rs1_val, rs2_val, rs3_val);
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_fmsub(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto rs1 = instr.get_rs1();
+    auto rs2 = instr.get_rs2();
+    auto rs3 = instr.get_rs3();
+    float rs1_val = memory.get_float_reg(rs1);
+    float rs2_val = memory.get_float_reg(rs2);
+    float rs3_val = memory.get_float_reg(rs3);
+    float res = 0.0;
+
+    if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val) || helpers::is_f_snan(rs3_val))
+    {
+        res = helpers::bitcast<float>(CANONICAL_NAN);
+    }
+    else
+    {
+        helpers::set_round(instr.get_funct3());
+        res = std::fma(rs1_val, rs2_val, -rs3_val);
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_fnmadd(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto rs1 = instr.get_rs1();
+    auto rs2 = instr.get_rs2();
+    auto rs3 = instr.get_rs3();
+    float rs1_val = memory.get_float_reg(rs1);
+    float rs2_val = memory.get_float_reg(rs2);
+    float rs3_val = memory.get_float_reg(rs3);
+    float res = 0.0;
+
+    if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val) || helpers::is_f_snan(rs3_val))
+    {
+        res = helpers::bitcast<float>(CANONICAL_NAN);
+    }
+    else
+    {
+        helpers::set_round(instr.get_funct3());
+        res = std::fma(-rs1_val, rs2_val, -rs3_val);
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
+}
+
+uint32_t exec_fnmsub(memory::Memory& memory, const isa::Instruction& instr)
+{
+    auto rd = instr.get_rd();
+    auto rs1 = instr.get_rs1();
+    auto rs2 = instr.get_rs2();
+    auto rs3 = instr.get_rs3();
+    float rs1_val = memory.get_float_reg(rs1);
+    float rs2_val = memory.get_float_reg(rs2);
+    float rs3_val = memory.get_float_reg(rs3);
+    float res = 0.0;
+
+    if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val) || helpers::is_f_snan(rs3_val))
+    {
+        res = helpers::bitcast<float>(CANONICAL_NAN);
+    }
+    else
+    {
+        helpers::set_round(instr.get_funct3());
+        res = std::fma(-rs1_val, rs2_val, rs3_val);
+    }
+
     return memory.get_pc() + INSTR_SIZE;
 }
 

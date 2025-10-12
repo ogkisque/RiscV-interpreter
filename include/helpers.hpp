@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdio>
 #include <bitset>
+#include <cfenv>
 
 namespace helpers
 {
@@ -56,6 +57,11 @@ uint8_t get_rs2(uint32_t raw)
     return get_field(raw, 20, 25);
 }
 
+uint8_t get_rs3(uint32_t raw)
+{
+    return get_field(raw, 27, 32);
+}
+
 uint8_t get_funct3(uint32_t raw)
 {
     return get_field(raw, 12, 15);
@@ -100,6 +106,54 @@ To bitcast(From val)
 {
     static_assert(sizeof(To) == sizeof(From));
     return *(To*)(&val);
+}
+
+void set_round(uint8_t rm)
+{
+    switch (rm)
+    {
+        case 0b000:
+            std::fesetround(FE_TONEAREST);
+            break;
+        case 0b001:
+            std::fesetround(FE_TOWARDZERO);
+            break;
+        case 0b010:
+            std::fesetround(FE_DOWNWARD);
+            break;
+        case 0b011:
+            std::fesetround(FE_UPWARD);
+            break;
+        default:
+            std::fesetround(FE_TONEAREST);
+            break;
+    }
+}
+
+bool is_nan(uint32_t u)
+{
+    uint32_t exp = (u >> 23) & 0xFF;
+    uint32_t frac = u & 0x7FFFFFu;
+    return (exp == 0xFF) && (frac != 0);
+}
+
+bool is_snan(uint32_t u)
+{
+    if (!is_nan(u))
+    {
+        return false;
+    }
+    return ((u & (1u << 22)) == 0);
+}
+
+bool is_f_snan(float u)
+{
+    return is_snan(bitcast<uint32_t>(u));
+}
+
+bool is_f_nan(float u)
+{
+    return is_nan(bitcast<uint32_t>(u));
 }
 
 } // namespace helpers

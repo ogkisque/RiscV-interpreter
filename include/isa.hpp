@@ -6,6 +6,7 @@
 #include <utility>
 #include <optional>
 #include <unistd.h>
+#include <cmath>
 
 #include "memory.hpp"
 
@@ -20,7 +21,7 @@ const uint32_t MUL_MATH_FUNCT7 =    0b1;
 
 enum class InstructionType
 {
-    R, I, S, B, U, J
+    R, I, S, B, U, J, R4
 };
 
 const uint8_t BASE_MATH_I_OPCODE = 0b0010011;
@@ -104,6 +105,8 @@ instructions_store_map = {
     {0b010, {StoreInstructionType::SW, "sw"}}
 };
 
+const uint32_t CANONICAL_NAN = 0x7FC00000;
+
 class Instruction;
 
 using ExecuteFunction = uint32_t(*)(memory::Memory& memory, const Instruction& instr);
@@ -148,6 +151,12 @@ public:
     {
         assert(rs2_.has_value());
         return rs2_.value();
+    }
+
+    uint8_t get_rs3() const
+    {
+        assert(rs3_.has_value());
+        return rs3_.value();
     }
 
     uint8_t get_funct3() const
@@ -226,6 +235,7 @@ private:
     std::optional<uint8_t> rd_ = std::nullopt;
     std::optional<uint8_t> rs1_ = std::nullopt;
     std::optional<uint8_t> rs2_= std::nullopt;
+    std::optional<uint8_t> rs3_= std::nullopt;
 
     std::optional<BaseMathInstructionType> base_math_instr_type_ = std::nullopt;
     std::optional<BranchInstructionType> branch_instr_type_ = std::nullopt;
@@ -245,6 +255,12 @@ uint32_t exec_branch(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr);
 uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_f_load(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_f_store(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_fmadd(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_fmsub(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_fnmadd(memory::Memory& memory, const isa::Instruction& instr);
+uint32_t exec_fnmsub(memory::Memory& memory, const isa::Instruction& instr);
 
 const std::unordered_map<uint8_t, Instruction::InstructionInfo>
 instructions_map = {
@@ -257,7 +273,13 @@ instructions_map = {
     {BRANCH_OPCODE,         {InstructionType::B, "branch", exec_branch}},
     {LOAD_OPCODE,           {InstructionType::I, "load", exec_load}},
     {STORE_OPCODE,          {InstructionType::S, "store", exec_store}},
-    {0b1110011,             {InstructionType::I, "ecall", exec_ecall}}
+    {0b1110011,             {InstructionType::I, "ecall", exec_ecall}},
+    {0b0000111,             {InstructionType::I, "f_load", exec_f_load}},
+    {0b0100111,             {InstructionType::S, "f_store", exec_f_store}},
+    {0b1000011,             {InstructionType::R4, "fmadd_s", exec_fmadd}},
+    {0b1000111,             {InstructionType::R4, "fmsub_s", exec_fmsub}},
+    {0b1001111,             {InstructionType::R4, "fnmadd_s", exec_fnmadd}},
+    {0b1001011,             {InstructionType::R4, "fnmsub_s", exec_fnmsub}}
 };
 
 } // namespace isa
