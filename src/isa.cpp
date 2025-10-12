@@ -49,6 +49,18 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
                     std::tie(base_math_instr_type_, additional_name_) = it->second;
                 }
             }
+            else if (helpers::get_opcode(raw_instr.code) == F_BASE_MATH_OPCODE)
+            {
+                auto it = instructions_f_base_math_map.find(funct7_.value());
+                if (it == instructions_f_base_math_map.end())
+                {
+                    fprintf(stderr, "Unknown f base math instruction\n"
+                                    "Opcode: 0x%08x; funct7: 0x%08x Address: 0x%08x\n",
+                                    F_BASE_MATH_OPCODE, funct7_.value(), raw_instr.address);
+                    assert(0);
+                }
+                std::tie(f_base_math_instr_type_, additional_name_) = it->second;
+            }
             break;
         case InstructionType::I:
             rd_ = helpers::get_rd(code);
@@ -949,38 +961,146 @@ uint32_t exec_f_base_math(memory::Memory& memory, const isa::Instruction& instr)
         }
         case FBaseMathInstructionType::FMV_X_W_FCLASS:
         {
-            
+            int_rd = true;
+            switch (funct3)
+            {
+                case 0b0: // fmv_x_w
+                {
+                    int_res = helpers::bitcast<uint32_t>(rs1_val);
+                    break;
+                }
+                case 0b1: // fclass
+                {
+                    uint32_t u = helpers::bitcast<uint32_t>(rs1_val);
+                    uint32_t exp = (u >> 23) & 0xFF;
+                    uint32_t frac = u & 0x7FFFFFu;
+                    uint32_t sign = (u >> 31) & 1u;
+                    if (exp == 0xFF)
+                    {
+                        if (frac == 0)
+                        {
+                            if (sign)
+                                int_res |= (1u << 0);
+                            else
+                                int_res |= (1u << 7);
+                        }
+                        else
+                        {
+                            if (helpers::is_f_snan(u))
+                                int_res |= (1u << 8);
+                            else
+                                int_res |= (1u << 9);
+                        }
+                    }
+                    else if (exp == 0)
+                    {
+                        if (frac == 0)
+                        {
+                            if (sign)
+                                int_res |= (1u << 3);
+                            else
+                                int_res |= (1u << 4);
+                        }
+                        else
+                        {
+                            if (sign)
+                                int_res |= (1u << 2);
+                            else
+                                int_res |= (1u << 5);
+                        }
+                    }
+                    else
+                    {
+                        if (sign)
+                            int_res |= (1u << 1);
+                        else
+                            int_res |= (1u << 6);
+                    }
+                    break;
+                }
+                default:
+                    fprintf(stderr, "Unknown fcvt_s_w instruction\nCode: 0x%08x, addr: 0x%08x, funct3: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), funct3);
+                    assert(0);
+                    break;
+            }
             break;
         }
         case FBaseMathInstructionType::FEQ_FLT_FLE:
         {
             float rs2_val = memory.get_float_reg(rs2);
+            int_rd = true;
             if (helpers::is_f_snan(rs1_val) || helpers::is_f_snan(rs2_val))
             {
-                res = 0.0;
+                int_res = 0;
                 break;
+            }
+
+            switch (funct3)
+            {
+                case 0b000: // fle
+                    int_res = (rs1_val <= rs2_val) ? 1 : 0;
+                    break;
+                case 0b001: // flt
+                    int_res = (rs1_val < rs2_val) ? 1 : 0;
+                    break;
+                case 0b010: // feq
+                    int_res = (rs1_val == rs2_val) ? 1 : 0;
+                    break;
+                default:
+                    fprintf(stderr, "Unknown fcmp instruction\nCode: 0x%08x, addr: 0x%08x, funct3: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), funct3);
+                    assert(0);
+                    break;
             }
             break;
         }
         case FBaseMathInstructionType::FCVT_S_W:
         {
-            
+            uint32_t rs1_int = memory.get_int_reg(rs1);
+            helpers::set_round(funct3);
+            switch (rs2)
+            {
+                case 0b0: // fcvt_s_w
+                    res = static_cast<float>(helpers::bitcast<int>(rs1_int));
+                    break;
+                case 0b1: // fcvt_s_wu
+                    res = static_cast<float>(rs1_int);
+                    break;
+                default:
+                    fprintf(stderr, "Unknown fcvt_s_w instruction\nCode: 0x%08x, addr: 0x%08x, rs2: 0x%02x\n",
+                                    instr.get_raw_code(), instr.get_address(), rs2);
+                    assert(0);
+                    break;
+            }
             break;
         }
         case FBaseMathInstructionType::FMV_W_X:
         {
-            
+            uint32_t rs1_int = memory.get_int_reg(rs1);
+            res = helpers::bitcast<float>(rs1_int);
             break;
         }
         default:
         {
-            fprintf(stderr, "Unknown mul math instruction\n"
+            fprintf(stderr, "Unknown f base math instruction\n"
                             "Code: 0x%08x; addr: 0x%08x; funct7 0x%02x\n",
                             instr.get_raw_code(), instr.get_address(), instr.get_funct7());
             assert(0);
             break;
         }
     }
+
+    if (int_rd)
+    {
+        memory.set_int_reg(rd, int_res);
+    }
+    else
+    {
+        memory.set_float_reg(rd, res);
+    }
+
+    return memory.get_pc() + INSTR_SIZE;
 }
 
 } // namespace isa

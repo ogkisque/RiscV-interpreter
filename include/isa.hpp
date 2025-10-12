@@ -116,8 +116,8 @@ const std::unordered_map<uint8_t, std::pair<FBaseMathInstructionType, std::strin
 instructions_f_base_math_map = {
     {0b0000000, {FBaseMathInstructionType::FADD, "fadd"}},
     {0b0000100, {FBaseMathInstructionType::FSUB, "fsub"}},
-    {0b0001100, {FBaseMathInstructionType::FMUL, "fmul"}},
-    {0b0000000, {FBaseMathInstructionType::FDIV, "fdiv"}},
+    {0b0001000, {FBaseMathInstructionType::FMUL, "fmul"}},
+    {0b0001100, {FBaseMathInstructionType::FDIV, "fdiv"}},
     {0b0101100, {FBaseMathInstructionType::FSQRT, "fsqrt"}},
     {0b0010000, {FBaseMathInstructionType::FSGNJ, "fsgnj"}},
     {0b0010100, {FBaseMathInstructionType::FMIN_FMAX, "fmin/fmax"}},
