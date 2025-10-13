@@ -13,6 +13,9 @@ namespace memory
 const int NUM_INT_REGS = 32;
 const int NUM_FLOAT_REGS = 32;
 
+const uint32_t DEFAULT_SIZE = 0x2000000;
+const uint32_t ARGV_ADDR    = 0x1800000;
+
 class Registers
 {
 public:
@@ -71,6 +74,8 @@ private:
 class SimpleMemory
 {
 public:
+    SimpleMemory(uint32_t size) : data_(size, 0) {}
+
     uint8_t load8(uint32_t addr) const
     {
         assert(addr < data_.size());
@@ -147,6 +152,15 @@ public:
             size_t new_size = std::max<uint64_t>(need, std::max<uint64_t>(data_.size() * 2, 0x10000));
             data_.resize(new_size, 0);
         }
+        //fprintf(stderr, "SIZE 0x%08x\n", data_.size());
+    }
+
+    void dump_mem(uint32_t addr, uint32_t len)
+    {
+        for (int i = 0; i < len; i += 4)
+        {
+            fprintf(stderr, "addr: 0x%08x; val: 0x%08x\n", addr + i, load32(addr + i));
+        }
     }
 
 private:
@@ -157,6 +171,8 @@ private:
 class Memory
 {
 public:
+    Memory(uint32_t size) : simple_memory_(size) {}
+
     void set_int_reg(int num, uint32_t val)
     {
         regs_.set_int_reg(num, val);
@@ -257,6 +273,11 @@ public:
     bool is_exit()
     {
         return exit_;
+    }
+
+    void dump_mem(uint32_t addr, uint32_t len)
+    {
+        simple_memory_.dump_mem(addr, len);
     }
 
 private:

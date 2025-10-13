@@ -14,7 +14,7 @@ namespace isa
 {
 
 const uint32_t INSTR_SIZE =         0x4;
-const int ECALL_READ_CODE =         3;
+const int ECALL_READ_CODE =         63;
 const int ECALL_WRITE_CODE =        64;
 const int ECALL_EXIT_CODE =         93;
 const uint32_t MUL_MATH_FUNCT7 =    0b1;

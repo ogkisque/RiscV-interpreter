@@ -171,11 +171,11 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
 {
     auto rd = instr.get_rd();
     uint32_t imm_unsigned = instr.get_imm();
-    int imm_signed = helpers::bitcast<int>(imm_unsigned);
+    int imm_signed = helpers::bitcast<int>(imm_unsigned << 20) >> 20;
     auto rs1 = instr.get_rs1();
     auto type = instr.get_base_math_instr_type();
     int res = 0;
-    int rs1_val_unsigned = memory.get_int_reg(rs1);
+    uint32_t rs1_val_unsigned = memory.get_int_reg(rs1);
     int rs1_val_signed = helpers::bitcast<int>(rs1_val_unsigned);
     
     switch (type)
@@ -200,8 +200,38 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
             break;
         case BaseMathInstructionType::SLL:
         {
+            uint8_t tmp_type = imm_unsigned >> 5;
             uint32_t shamt = imm_unsigned & 0x1F;
-            res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
+
+            if (tmp_type == 0b0000000) // SLL
+            {
+                res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
+            }
+            else if (tmp_type == 0b0110000) // SEXT
+            {
+                if (shamt == 0b00100) // SEXT.B
+                {
+                    uint32_t tmp = rs1_val_unsigned & 0xFF;
+                    res = helpers::bitcast<int>(tmp << 24) >> 24;
+                }
+                else if (shamt = 0b00101) // SEXT.H
+                {
+                    uint32_t tmp = rs1_val_unsigned & 0xFFFF;
+                    res = helpers::bitcast<int>(tmp << 16) >> 16;
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown sext instruction.\nshamt 0x%02x, addr 0x%08x\n",
+                            shamt, instr.get_address());
+                    assert(0);
+                }
+            }
+            else
+            {
+                fprintf(stderr, "Unknown base math instruction.\nfunct7 0x%02x, addr 0x%08x\n",
+                        tmp_type, instr.get_address());
+                assert(0);
+            }
             break;
         }
         case BaseMathInstructionType::SRL_SRA:
@@ -241,9 +271,9 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
     auto rs2 = instr.get_rs2();
     auto funct7 = instr.get_funct7();
     int res = 0;
-    int rs1_val_unsigned = memory.get_int_reg(rs1);
+    uint32_t rs1_val_unsigned = memory.get_int_reg(rs1);
     int rs1_val_signed = helpers::bitcast<int>(rs1_val_unsigned);
-    int rs2_val_unsigned = memory.get_int_reg(rs2);
+    uint32_t rs2_val_unsigned = memory.get_int_reg(rs2);
     int rs2_val_signed = helpers::bitcast<int>(rs2_val_unsigned);
 
     if (funct7 == MUL_MATH_FUNCT7)
@@ -254,6 +284,8 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
             case MulMathInstructionType::MUL:
             {
                 res = helpers::bitcast<int>((uint32_t)((uint64_t)rs1_val_unsigned * (uint64_t)rs2_val_unsigned));
+                //fprintf(stderr, "%d (0x%08x) * %d (0x%08x) = %d (0x%08x)",
+
                 break;
             }
             case MulMathInstructionType::MULH:
@@ -355,6 +387,7 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 else if (funct7 == 0x0) // ADD
                 {
                     res = rs1_val_signed + rs2_val_signed;
+                    //fprintf(stderr, "ADD %d + %d = %d\n", rs1_val_signed, rs2_val_signed, res);
                 }
                 else
                 {
@@ -371,13 +404,54 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 res = rs1_val_unsigned < rs2_val_unsigned ? 1 : 0;
                 break;
             case BaseMathInstructionType::AND:
-                res = rs1_val_signed & rs2_val_signed;
+                if (funct7 == 0b0100000) // ANDN
+                {
+                    res = rs1_val_signed & (~rs2_val_signed);
+                }
+                else if (funct7 == 0b0000000) // AND
+                {
+                    res = rs1_val_signed & rs2_val_signed;
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown base math instruction\n");
+                    assert(0);
+                }
                 break;
             case BaseMathInstructionType::OR:
-                res = rs1_val_signed | rs2_val_signed;
+                if (funct7 == 0b0100000) // ORN
+                {
+                    res = rs1_val_signed | (~rs2_val_signed);
+                }
+                else if (funct7 == 0b0000000) // OR
+                {
+                    res = rs1_val_signed | rs2_val_signed;
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown base math instruction\n");
+                    assert(0);
+                }
                 break;
             case BaseMathInstructionType::XOR:
-                res = rs1_val_signed ^ rs2_val_signed;
+                if (funct7 == 0b0100000) // XORN
+                {
+                    res = ~(rs1_val_signed ^ rs2_val_signed);
+                }
+                else if (funct7 == 0b0000000) // XOR
+                {
+                    res = rs1_val_signed ^ rs2_val_signed;
+                }
+                else if (funct7 == 0b0000100) // ZEXT.H
+                {
+                    res = rs1_val_signed & 0xFFFF;
+                }
+                else
+                {
+                    fprintf(stderr, "Unknown base math instruction.\nfunct7 0x%02x, addr 0x%08x\n",
+                            funct7, instr.get_address());
+                    assert(0);
+                }
                 break;
             case BaseMathInstructionType::SLL:
             {
@@ -639,10 +713,14 @@ uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
         case ECALL_WRITE_CODE:
         {
             std::vector<uint8_t> tmp(count);
+            //fprintf(stderr, "0x");
             for (size_t i = 0; i < count; i++)
             {
                 tmp[i] = memory.load8(buf_addr + i);
+                //fprintf(stderr, "0x%08x\n", buf_addr + i);
+                //fprintf(stderr, "%02x", tmp[i]);
             }
+            //fprintf(stderr, "\n");
 
             auto res = write(fd, tmp.data(), count);
             assert(res == count);
@@ -656,7 +734,7 @@ uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
         }
         default:
         {
-            fprintf(stderr, "Unknown ecall instruction\n");
+            fprintf(stderr, "Unknown ecall instruction %u\n", type);
             assert(0);
             break;
         }

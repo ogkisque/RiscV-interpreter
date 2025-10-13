@@ -3,13 +3,21 @@
 
 int main(int argc, char** argv)
 {
-    assert(argc == 2);
+    if (argc < 2)
+    {
+        fprintf(stderr, "Too few arguments\n");
+        return 1;
+    }
 
     std::string filename(argv[1]);
     core::Core core;
     core.decode(filename);
+    if (argc > 2)
+    {
+        core.process_argv(argc, argv);
+    }
     //core.dump_instr();
-    core.run();
-    
-    return 0;
+    int exit_code = core.run();
+    fprintf(stderr, "EXIT %d\n", exit_code);
+    return exit_code;
 }
