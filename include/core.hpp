@@ -63,8 +63,11 @@ public:
             char* str = argv[i + 2];
             uint32_t len = strlen(str);
 
+            //fprintf(stderr, "ARG %d; %s; addr of str 0x%08x; addr of addr of str 0x%08x\n",
+                    //i, str, addr, memory_->get_int_reg(2) + (i + 2) * 4);
+
             memory_->write_bytes(addr, (const uint8_t*) str, len);
-            memory_->store32(memory_->get_int_reg(2) + (i + 1) * 4, addr);
+            memory_->store32(memory_->get_int_reg(2) + (i + 2) * 4, addr);
 
             addr += len;
             addr = padding(addr);
