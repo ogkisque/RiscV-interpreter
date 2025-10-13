@@ -54,6 +54,18 @@ private:
         Elf32Word sh_entsize;
     };
 
+    struct Elf32Phdr
+    {
+        Elf32Word p_type;
+        Elf32Off  p_offset;
+        Elf32Addr p_vaddr;
+        Elf32Addr p_paddr;
+        Elf32Word p_filesz;
+        Elf32Word p_memsz;
+        Elf32Word p_flags;
+        Elf32Word p_align;
+    };
+
     uint32_t readU32(const unsigned char* data)
     {
         return data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
@@ -64,113 +76,150 @@ private:
         return data[0] | (data[1] << 8);
     }
 
-    void parse_elf(const std::string& filename)
+    void parse_elf(const std::string& filename, uint32_t& start_pc, std::shared_ptr<memory::Memory> mem)
     {
         std::ifstream file(filename, std::ios::binary);
         assert(file.is_open());
-
         file.seekg(0, std::ios::end);
         std::streamsize fileSize = file.tellg();
         file.seekg(0, std::ios::beg);
+        assert(fileSize > 0);
 
         std::vector<unsigned char> fileData(fileSize);
         file.read(reinterpret_cast<char*>(fileData.data()), fileSize);
         file.close();
 
-        assert(fileSize >= sizeof(Elf32Ehdr) && 
-            fileData[0] == 0x7F && fileData[1] == 'E' &&
-            fileData[2] == 'L' && fileData[3] == 'F');
+        assert(fileSize >= (std::streamsize)sizeof(Elf32Ehdr));
+        const Elf32Ehdr* ehdr = reinterpret_cast<const Elf32Ehdr*>(fileData.data());
 
-        const Elf32Ehdr* ehdr = (const Elf32Ehdr*)(fileData.data());
-        
-        auto check = readU16(ehdr->e_ident + 18);
-        assert(check == 0xF3);
+        assert(ehdr->e_ident[0] == 0x7F && ehdr->e_ident[1] == 'E' && ehdr->e_ident[2] == 'L' && ehdr->e_ident[3] == 'F');
 
-        const Elf32Shdr* shdrTable = (const Elf32Shdr*)(fileData.data() + readU32((const unsigned char*)&ehdr->e_shoff));
-        const Elf32Shdr* shstrtab = &shdrTable[readU16((const unsigned char*)&ehdr->e_shstrndx)];
-        const char* shstrtabData = (const char*)(fileData.data() + readU32((const unsigned char*)&shstrtab->sh_offset));
+        const unsigned char EI_CLASS = 4;
+        assert(ehdr->e_ident[EI_CLASS] == 1);
 
-        const Elf32Shdr* textSection = nullptr;
-        auto size = readU16((const unsigned char*)&ehdr->e_shnum);
-        for (int i = 0; i < size; i++)
+        const unsigned char EI_DATA = 5;
+        assert(ehdr->e_ident[EI_DATA] == 1);
+
+        start_pc = ehdr->e_entry;
+
+        uint32_t phoff = ehdr->e_phoff;
+        uint16_t phentsize = ehdr->e_phentsize;
+        uint16_t phnum = ehdr->e_phnum;
+        const uint32_t PT_LOAD = 1;
+        const uint32_t PF_X = 1;
+
+        uint32_t text_vaddr = 0;
+        const unsigned char* text_file_ptr = nullptr;
+        uint32_t text_filesz = 0;
+
+        assert(phoff + uint32_t(phnum) * uint32_t(std::max<uint16_t>(phentsize, sizeof(Elf32Phdr))) <= fileSize);
+
+        for (uint16_t i = 0; i < phnum; ++i)
         {
-            const Elf32Shdr* shdr = &shdrTable[i];
-            const char* sectionName = shstrtabData + readU32((const unsigned char*)&shdr->sh_name);
-            
-            if (std::string(sectionName) == ".text")
+            size_t offset = phoff + i * phentsize;
+            assert(offset + sizeof(Elf32Phdr) <= fileData.size());
+            const Elf32Phdr* ph = reinterpret_cast<const Elf32Phdr*>(fileData.data() + offset);
+
+            uint32_t p_type   = ph->p_type;
+            uint32_t p_offset = ph->p_offset;
+            uint32_t p_vaddr  = ph->p_vaddr;
+            uint32_t p_filesz = ph->p_filesz;
+            uint32_t p_memsz  = ph->p_memsz;
+            uint32_t p_flags  = ph->p_flags;
+
+            if (p_type == PT_LOAD)
             {
-                textSection = shdr;
-                break;
+                if (mem)
+                {
+                    if (p_filesz)
+                    {
+                        assert(uint64_t(p_offset) + p_filesz <= uint64_t(fileData.size()));
+                        mem->write_bytes(p_vaddr, fileData.data() + p_offset, p_filesz);
+                    }
+
+                    if (p_memsz > p_filesz)
+                    {
+                        uint32_t zero_addr = p_vaddr + p_filesz;
+                        uint32_t zero_len = p_memsz - p_filesz;
+                        std::vector<uint8_t> zeros(zero_len, 0);
+                        mem->write_bytes(zero_addr, zeros.data(), zeros.size());
+                    }
+                }
             }
         }
-        assert(textSection);
 
-        const unsigned char* textData = fileData.data() + readU32((const unsigned char*)&textSection->sh_offset);
-        uint32_t textSize = readU32((const unsigned char*)&textSection->sh_size);
-        uint32_t textAddr = readU32((const unsigned char*)&textSection->sh_addr);
-
-        raw_instrs_.reserve(textSize / 4);
-        for (uint32_t i = 0; i < textSize; i += 4)
+        uint32_t shoff = ehdr->e_shoff;
+        uint16_t shentsize = ehdr->e_shentsize;
+        uint16_t shnum = ehdr->e_shnum;
+        uint16_t shstrndx = ehdr->e_shstrndx;
+        if (shoff && shnum && shstrndx < shnum)
         {
-            if (i + 4 > textSize)
-                break;
+            const Elf32Shdr* shTable = reinterpret_cast<const Elf32Shdr*>(fileData.data() + shoff);
+            const Elf32Shdr* shstr = &shTable[shstrndx];
+            const char* shstrtabData = reinterpret_cast<const char*>(fileData.data() + shstr->sh_offset);
+            for (int i = 0; i < shnum; ++i)
+            {
+                const Elf32Shdr* sh = &shTable[i];
+                const char* name = shstrtabData + sh->sh_name;
+                if (std::strcmp(name, ".text") == 0)
+                {
+                    text_vaddr = sh->sh_addr;
+                    text_filesz = sh->sh_size;
+                    text_file_ptr = fileData.data() + sh->sh_offset;
+                    break;
+                }
+            }
+        }
 
-            uint32_t instruction = readU32(textData + i);
-            uint32_t address = textAddr + i;
-            raw_instrs_.emplace_back(instruction, address);
+        if (text_file_ptr && text_filesz >= 4)
+        {
+            mem->set_zero_pc(text_vaddr);
+            mem->ensure_capacity(text_vaddr, text_filesz);
+
+            for (uint32_t i = 0; i + 4 <= text_filesz; i += 4)
+            {
+                uint32_t instr = uint32_t(text_file_ptr[i])
+                            | (uint32_t(text_file_ptr[i+1]) << 8)
+                            | (uint32_t(text_file_ptr[i+2]) << 16)
+                            | (uint32_t(text_file_ptr[i+3]) << 24);
+                uint32_t addr = text_vaddr + i;
+                raw_instrs_.emplace_back(instr, addr);
+            }
         }
     }
 
-    void parse_raw()
+    std::vector<std::shared_ptr<isa::Instruction>> parse_raw()
     {
-        instrs_.reserve(raw_instrs_.size());
-
-        int num_to_parse = 1;
-        int i = 0;
+        std::vector<std::shared_ptr<isa::Instruction>> instrs;
+        instrs.reserve(raw_instrs_.size());
 
         for (auto& raw_instr : raw_instrs_)
         {
             uint8_t opcode = raw_instr.code & 0x7F;
             auto it = isa::instructions_map.find(opcode);
-            assert(it != isa::instructions_map.end());
+            if (it == isa::instructions_map.end())
+            {
+                fprintf(stderr, "Unknown instruction. Opcode: 0x%08x; Address: 0x%08x\n",
+                                opcode, raw_instr.address);
+                assert(0);
+            }
             auto instr_info = it->second;
-            instrs_.emplace_back(raw_instr, instr_info);
-
-            i++;
-            if (i >= num_to_parse)
-                break;
+            instrs.push_back(std::make_shared<isa::Instruction>(raw_instr, instr_info));
         }
+
+        return instrs;
     }
 
 public:
-    void decode(const std::string& filename)
+    std::vector<std::shared_ptr<isa::Instruction>>
+    decode(const std::string& filename, uint32_t& start_pc, std::shared_ptr<memory::Memory> mem)
     {
-        parse_elf(filename);
-        parse_raw();
-    }
-
-    void dump_raw_instrs() const
-    {
-        for (auto& instr : raw_instrs_)
-        {
-            std::cerr << std::hex << std::setw(8) << std::setfill('0') << instr.address << ": "
-                      << std::hex << std::setw(8) << std::setfill('0') << instr.code << "    "
-                      << std::bitset<32>(instr.code) << std::endl;
-        }
-    }
-
-    void dump_instr() const
-    {
-        for (auto& instr : instrs_)
-        {
-            fprintf(stderr, "address: 0x%08x; code: 0x%08x; name: %s\n",
-                            instr.get_address(), instr.get_raw_code(), instr.get_name().c_str());
-        }
+        parse_elf(filename, start_pc, mem);
+        return parse_raw();
     }
 
 private:
     std::vector<isa::Instruction::RawInstruction> raw_instrs_;
-    std::vector<isa::Instruction> instrs_;
 
 }; // class Decoder
 

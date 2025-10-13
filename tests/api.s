@@ -18,9 +18,6 @@ exit:
 li a7, 93
 ecall
 
-hahaha:
-
-
 _start:
 # passing argc, argv[]
 lw a0, 0(sp)
