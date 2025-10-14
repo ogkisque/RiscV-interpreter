@@ -255,6 +255,14 @@ public:
     }
 
 private:
+    void process_branch();
+    void process_mul_math();
+    void process_base_math_r();
+    void process_f_base_math();
+    void process_base_math_i();
+    void process_load();
+    void process_store();
+
     RawInstruction raw_;
     InstructionInfo info_;
 

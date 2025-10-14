@@ -16,8 +16,7 @@ int main(int argc, char** argv)
     {
         core.process_argv(argc, argv);
     }
-    //core.dump_instr();
+    
     int exit_code = core.run();
-    fprintf(stderr, "EXIT %d\n", exit_code);
     return exit_code;
 }

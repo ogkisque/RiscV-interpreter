@@ -4,6 +4,97 @@
 namespace isa
 {
 
+void Instruction::process_branch()
+{
+    auto it = instructions_branch_map.find(funct3_.value());
+    if (it == instructions_branch_map.end())
+    {
+        fprintf(stderr, "Unknown base math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BRANCH_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(branch_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_mul_math()
+{
+    auto it = instructions_mul_math_map.find(funct3_.value());
+    if (it == instructions_mul_math_map.end())
+    {
+        fprintf(stderr, "Unknown mul math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_R_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(mul_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_base_math_r()
+{
+    auto it = instructions_base_math_map.find(funct3_.value());
+    if (it == instructions_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown base math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_R_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_f_base_math()
+{
+    auto it = instructions_f_base_math_map.find(funct7_.value());
+    if (it == instructions_f_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown f base math instruction\n"
+                        "Opcode: 0x%08x; funct7: 0x%08x\n",
+                        F_BASE_MATH_OPCODE, funct7_.value());
+        assert(0);
+    }
+    std::tie(f_base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_base_math_i()
+{
+    auto it = instructions_base_math_map.find(funct3_.value());
+    if (it == instructions_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown base math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_I_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_load()
+{
+    auto it = instructions_load_map.find(funct3_.value());
+    if (it == instructions_load_map.end())
+    {
+        fprintf(stderr, "Unknown load instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        LOAD_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(load_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_store()
+{
+    auto it = instructions_store_map.find(funct3_.value());
+    if (it == instructions_store_map.end())
+    {
+        fprintf(stderr, "Unknown load instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        STORE_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(store_instr_type_, additional_name_) = it->second;
+}
+
 Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
     : raw_(raw_instr), info_(info)
 {
@@ -26,40 +117,16 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             {
                 if (funct7_.value() == MUL_MATH_FUNCT7)
                 {
-                    auto it = instructions_mul_math_map.find(funct3_.value());
-                    if (it == instructions_mul_math_map.end())
-                    {
-                        fprintf(stderr, "Unknown mul math instruction\n"
-                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
-                        assert(0);
-                    }
-                    std::tie(mul_math_instr_type_, additional_name_) = it->second;
-                    }
+                    process_mul_math();
+                }
                 else
                 {
-                    auto it = instructions_base_math_map.find(funct3_.value());
-                    if (it == instructions_base_math_map.end())
-                    {
-                        fprintf(stderr, "Unknown base math instruction\n"
-                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
-                        assert(0);
-                    }
-                    std::tie(base_math_instr_type_, additional_name_) = it->second;
+                    process_base_math_r();
                 }
             }
             else if (helpers::get_opcode(raw_instr.code) == F_BASE_MATH_OPCODE)
             {
-                auto it = instructions_f_base_math_map.find(funct7_.value());
-                if (it == instructions_f_base_math_map.end())
-                {
-                    fprintf(stderr, "Unknown f base math instruction\n"
-                                    "Opcode: 0x%08x; funct7: 0x%08x Address: 0x%08x\n",
-                                    F_BASE_MATH_OPCODE, funct7_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(f_base_math_instr_type_, additional_name_) = it->second;
+                process_f_base_math();
             }
             break;
         case InstructionType::I:
@@ -69,27 +136,11 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             imm_ = helpers::get_imm_i(code);
             if (helpers::get_opcode(raw_instr.code) == BASE_MATH_I_OPCODE)
             {
-                auto it = instructions_base_math_map.find(funct3_.value());
-                if (it == instructions_base_math_map.end())
-                {
-                    fprintf(stderr, "Unknown base math instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    BASE_MATH_I_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(base_math_instr_type_, additional_name_) = it->second;
+                process_base_math_i();
             }
             else if (helpers::get_opcode(raw_instr.code) == LOAD_OPCODE)
             {
-                auto it = instructions_load_map.find(funct3_.value());
-                if (it == instructions_load_map.end())
-                {
-                    fprintf(stderr, "Unknown load instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    LOAD_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(load_instr_type_, additional_name_) = it->second;
+                process_load();
             }
             break;
         case InstructionType::S:
@@ -100,15 +151,7 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
 
             if (helpers::get_opcode(raw_instr.code) == STORE_OPCODE)
             {
-                auto it = instructions_store_map.find(funct3_.value());
-                if (it == instructions_store_map.end())
-                {
-                    fprintf(stderr, "Unknown load instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    STORE_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(store_instr_type_, additional_name_) = it->second;
+                process_store();
             }
             break;
         case InstructionType::B:
@@ -118,15 +161,7 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             imm_ = helpers::get_imm_b(code);
             if (helpers::get_opcode(raw_instr.code) == BRANCH_OPCODE)
             {
-                auto it = instructions_branch_map.find(funct3_.value());
-                if (it == instructions_branch_map.end())
-                {
-                    fprintf(stderr, "Unknown base math instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    BRANCH_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(branch_instr_type_, additional_name_) = it->second;
+                process_branch();
             }
             break;
         case InstructionType::J:
@@ -283,9 +318,8 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
         {
             case MulMathInstructionType::MUL:
             {
-                res = helpers::bitcast<int>((uint32_t)((uint64_t)rs1_val_unsigned * (uint64_t)rs2_val_unsigned));
-                //fprintf(stderr, "%d (0x%08x) * %d (0x%08x) = %d (0x%08x)",
-
+                res = helpers::bitcast<int>((uint32_t)((uint64_t)rs1_val_unsigned *
+                                                       (uint64_t)rs2_val_unsigned));
                 break;
             }
             case MulMathInstructionType::MULH:
@@ -387,7 +421,6 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 else if (funct7 == 0x0) // ADD
                 {
                     res = rs1_val_signed + rs2_val_signed;
-                    //fprintf(stderr, "ADD %d + %d = %d\n", rs1_val_signed, rs2_val_signed, res);
                 }
                 else
                 {
@@ -506,8 +539,7 @@ uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr)
 
     uint32_t pc = memory.get_pc();
     uint32_t new_pc = (rs1_val_unsigned + helpers::bitcast<uint32_t>(offs_signed)) & (~1U);
-    //fprintf(stderr, "JALR INSTR; rs1 0x%08x (r%u); imm 0x%08x; new pc 0x%08x\n",
-            //rs1_val_unsigned, rs1, helpers::bitcast<uint32_t>(offs_signed), new_pc);
+
     if (rd != 0)
     {
         memory.set_int_reg(rd, pc + INSTR_SIZE);
@@ -595,8 +627,6 @@ uint32_t exec_load(memory::Memory& memory, const isa::Instruction& instr)
     int res = 0;
     int rs1_val_unsigned = memory.get_int_reg(rs1);
     uint32_t addr = rs1_val_unsigned + helpers::bitcast<uint32_t>(imm_signed);
-    //fprintf(stderr, "LOAD INSTR; rs1 0x%08x; imm 0x%08x; addr 0x%08x\n",
-            //rs1_val_unsigned, helpers::bitcast<uint32_t>(imm_signed), addr);
 
     switch (type)
     {
@@ -674,7 +704,6 @@ uint32_t exec_store(memory::Memory& memory, const isa::Instruction& instr)
         case StoreInstructionType::SW:
         {
             uint32_t data = rs2_val_unsigned;
-            //fprintf(stderr, "DATA 0x%08x\n", data);
             memory.store32(addr, data);
             break;
         }
@@ -713,14 +742,10 @@ uint32_t exec_ecall(memory::Memory& memory, const isa::Instruction& instr)
         case ECALL_WRITE_CODE:
         {
             std::vector<uint8_t> tmp(count);
-            //fprintf(stderr, "0x");
             for (size_t i = 0; i < count; i++)
             {
                 tmp[i] = memory.load8(buf_addr + i);
-                //fprintf(stderr, "0x%08x\n", buf_addr + i);
-                //fprintf(stderr, "%02x", tmp[i]);
             }
-            //fprintf(stderr, "\n");
 
             auto res = write(fd, tmp.data(), count);
             assert(res == count);
