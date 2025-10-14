@@ -255,6 +255,8 @@ public:
     }
 
 private:
+    void process_branch();
+    
     RawInstruction raw_;
     InstructionInfo info_;
 

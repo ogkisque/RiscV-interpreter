@@ -74,10 +74,6 @@ uint8_t get_funct7(uint32_t raw)
 
 uint32_t get_imm_i(uint32_t raw)
 {
-    //auto sign = get_field(raw, 31, 32);
-    //auto val = get_field(raw, 20, 31);
-    //fprintf(stderr, "AAA %d 0x%08x\n", get_field(raw, 20, 32), get_field(raw, 20, 32));
-    //return sign ? (val | 0xFFFFFA00U) : val;
     return get_field(raw, 20, 32);
 }
 

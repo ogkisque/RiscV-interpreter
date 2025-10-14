@@ -43,13 +43,13 @@ public:
     {
         while (!memory_->is_exit())
         {
-            //memory_->dump_regs();
             auto instr_id = memory_->get_instr_index();
             assert(instr_id < instrs_.size());
             
             auto instr = instrs_[instr_id];
             memory_->set_pc(instr->execute(*memory_));
         }
+        
         uint32_t exit_code = memory_->get_int_reg(10);
         return *(int*)(&exit_code);
     }
@@ -63,18 +63,12 @@ public:
             char* str = argv[i + 2];
             uint32_t len = strlen(str);
 
-            //fprintf(stderr, "ARG %d; %s; addr of str 0x%08x; addr of addr of str 0x%08x\n",
-                    //i, str, addr, memory_->get_int_reg(2) + (i + 2) * 4);
-
             memory_->write_bytes(addr, (const uint8_t*) str, len);
             memory_->store32(memory_->get_int_reg(2) + (i + 2) * 4, addr);
 
             addr += len;
             addr = padding(addr);
         }
-
-        //memory_->dump_mem(0x8000, 4);
-        //memory_->dump_mem(memory_->get_int_reg(2), 20);
     }
 
 private:
