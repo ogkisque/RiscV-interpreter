@@ -17,6 +17,84 @@ void Instruction::process_branch()
     std::tie(branch_instr_type_, additional_name_) = it->second;
 }
 
+void Instruction::process_mul_math()
+{
+    auto it = instructions_mul_math_map.find(funct3_.value());
+    if (it == instructions_mul_math_map.end())
+    {
+        fprintf(stderr, "Unknown mul math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_R_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(mul_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_base_math_r()
+{
+    auto it = instructions_base_math_map.find(funct3_.value());
+    if (it == instructions_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown base math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_R_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_f_base_math()
+{
+    auto it = instructions_f_base_math_map.find(funct7_.value());
+    if (it == instructions_f_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown f base math instruction\n"
+                        "Opcode: 0x%08x; funct7: 0x%08x\n",
+                        F_BASE_MATH_OPCODE, funct7_.value());
+        assert(0);
+    }
+    std::tie(f_base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_base_math_i()
+{
+    auto it = instructions_base_math_map.find(funct3_.value());
+    if (it == instructions_base_math_map.end())
+    {
+        fprintf(stderr, "Unknown base math instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        BASE_MATH_I_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(base_math_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_load()
+{
+    auto it = instructions_load_map.find(funct3_.value());
+    if (it == instructions_load_map.end())
+    {
+        fprintf(stderr, "Unknown load instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        LOAD_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(load_instr_type_, additional_name_) = it->second;
+}
+
+void Instruction::process_store()
+{
+    auto it = instructions_store_map.find(funct3_.value());
+    if (it == instructions_store_map.end())
+    {
+        fprintf(stderr, "Unknown load instruction\n"
+                        "Opcode: 0x%08x; funct3: 0x%08x\n",
+                        STORE_OPCODE, funct3_.value());
+        assert(0);
+    }
+    std::tie(store_instr_type_, additional_name_) = it->second;
+}
+
 Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
     : raw_(raw_instr), info_(info)
 {
@@ -39,40 +117,16 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             {
                 if (funct7_.value() == MUL_MATH_FUNCT7)
                 {
-                    auto it = instructions_mul_math_map.find(funct3_.value());
-                    if (it == instructions_mul_math_map.end())
-                    {
-                        fprintf(stderr, "Unknown mul math instruction\n"
-                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
-                        assert(0);
-                    }
-                    std::tie(mul_math_instr_type_, additional_name_) = it->second;
-                    }
+                    process_mul_math();
+                }
                 else
                 {
-                    auto it = instructions_base_math_map.find(funct3_.value());
-                    if (it == instructions_base_math_map.end())
-                    {
-                        fprintf(stderr, "Unknown base math instruction\n"
-                                        "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                        BASE_MATH_R_OPCODE, funct3_.value(), raw_instr.address);
-                        assert(0);
-                    }
-                    std::tie(base_math_instr_type_, additional_name_) = it->second;
+                    process_base_math_r();
                 }
             }
             else if (helpers::get_opcode(raw_instr.code) == F_BASE_MATH_OPCODE)
             {
-                auto it = instructions_f_base_math_map.find(funct7_.value());
-                if (it == instructions_f_base_math_map.end())
-                {
-                    fprintf(stderr, "Unknown f base math instruction\n"
-                                    "Opcode: 0x%08x; funct7: 0x%08x Address: 0x%08x\n",
-                                    F_BASE_MATH_OPCODE, funct7_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(f_base_math_instr_type_, additional_name_) = it->second;
+                process_f_base_math();
             }
             break;
         case InstructionType::I:
@@ -82,27 +136,11 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
             imm_ = helpers::get_imm_i(code);
             if (helpers::get_opcode(raw_instr.code) == BASE_MATH_I_OPCODE)
             {
-                auto it = instructions_base_math_map.find(funct3_.value());
-                if (it == instructions_base_math_map.end())
-                {
-                    fprintf(stderr, "Unknown base math instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    BASE_MATH_I_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(base_math_instr_type_, additional_name_) = it->second;
+                process_base_math_i();
             }
             else if (helpers::get_opcode(raw_instr.code) == LOAD_OPCODE)
             {
-                auto it = instructions_load_map.find(funct3_.value());
-                if (it == instructions_load_map.end())
-                {
-                    fprintf(stderr, "Unknown load instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    LOAD_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(load_instr_type_, additional_name_) = it->second;
+                process_load();
             }
             break;
         case InstructionType::S:
@@ -113,15 +151,7 @@ Instruction::Instruction(RawInstruction raw_instr, InstructionInfo info)
 
             if (helpers::get_opcode(raw_instr.code) == STORE_OPCODE)
             {
-                auto it = instructions_store_map.find(funct3_.value());
-                if (it == instructions_store_map.end())
-                {
-                    fprintf(stderr, "Unknown load instruction\n"
-                                    "Opcode: 0x%08x; funct3: 0x%08x Address: 0x%08x\n",
-                                    STORE_OPCODE, funct3_.value(), raw_instr.address);
-                    assert(0);
-                }
-                std::tie(store_instr_type_, additional_name_) = it->second;
+                process_store();
             }
             break;
         case InstructionType::B:
