@@ -242,7 +242,7 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
             {
                 res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
             }
-            else if (tmp_type == 0b0110000) // SEXT
+            else if (tmp_type == 0b0110000) // bit manip
             {
                 if (shamt == 0b00100) // SEXT.B
                 {
@@ -254,9 +254,50 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
                     uint32_t tmp = rs1_val_unsigned & 0xFFFF;
                     res = helpers::bitcast<int>(tmp << 16) >> 16;
                 }
+                else if (shamt = 0b00001) // CTZ
+                {
+                    std::bitset<32> tmp(rs1_val_unsigned);
+                    int i = 0;
+                    while (true)
+                    {
+                        if (tmp[i] == 1)
+                        {
+                            break;
+                        }
+                        if (i == 31)
+                        {
+                            break;
+                        }
+                        i++;
+                    } 
+                    res = i;
+                }
+                else if (shamt = 0b00000) // CLZ
+                {
+                    std::bitset<32> tmp(rs1_val_unsigned);
+                    int i = 31;
+                    while (true)
+                    {
+                        if (tmp[i] == 1)
+                        {
+                            break;
+                        }
+                        i--;
+                        if (i == -1)
+                        {
+                            break;
+                        }
+                    } 
+                    res = 31 - i;
+                }
+                else if (shamt == 0b00010) // CPOP
+                {
+                    std::bitset<32> tmp(rs1_val_unsigned);
+                    res = tmp.count();
+                }
                 else
                 {
-                    fprintf(stderr, "Unknown sext instruction.\nshamt 0x%02x, addr 0x%08x\n",
+                    fprintf(stderr, "Unknown bit manip instruction.\nshamt 0x%02x, addr 0x%08x\n",
                             shamt, instr.get_address());
                     assert(0);
                 }
@@ -271,14 +312,49 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
         }
         case BaseMathInstructionType::SRL_SRA:
         {
+            uint8_t tmp_type = imm_unsigned >> 5;
             uint32_t shamt = imm_unsigned & 0x1F;
-            if ((imm_unsigned & 0xFE0U) == 0x400) // SRAI
+
+            if (tmp_type == 0b0100000) // SRAI
             {
                 res = helpers::bitcast<int>(rs1_val_signed >> shamt);
             }
-            else if ((imm_unsigned & 0xFE0U) == 0x0) // SRLI
+            else if (tmp_type == 0b0000000) // SRLI
             {
                 res = helpers::bitcast<int>(rs1_val_unsigned >> shamt);
+            }
+            else if (tmp_type == 0b0110001) // RORI
+            {
+                shamt |= 0b10000;
+                res = helpers::bitcast<int>(
+                          (rs1_val_unsigned >> shamt) |
+                          (rs1_val_unsigned << (32 - shamt)));
+            }
+            else if (tmp_type == 0b0010100 && shamt == 0b00111) // ORC.B
+            {
+                std::bitset<32> tmp(rs1_val_unsigned);
+                for (int i = 0; i < 4; i++)
+                {
+                    bool is_one = false;
+                    for (int j = 0; j < 8; j++)
+                    {
+                        if (tmp[i * 8 + j])
+                        {
+                            is_one = true;
+                            break;
+                        }
+                    }
+                    uint8_t byte = is_one ? 0xFF : 0;
+                    res |= ((uint32_t) byte << (i * 8));
+                }
+            }
+            else if (tmp_type == 0b0110100 && shamt == 0b011000) // REV8
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    uint32_t byte = (rs1_val_unsigned >> (i * 8)) & 0xFF;
+                    res |= (byte << ((3 - i) * 8));
+                }
             }
             else
             {
@@ -445,6 +521,10 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 {
                     res = rs1_val_signed & rs2_val_signed;
                 }
+                else if (funct7 == 0b0000101) // MAXU
+                {
+                    res = helpers::bitcast<int>(std::max(rs1_val_unsigned, rs2_val_unsigned));
+                }
                 else
                 {
                     fprintf(stderr, "Unknown base math instruction\n");
@@ -460,6 +540,10 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 {
                     res = rs1_val_signed | rs2_val_signed;
                 }
+                else if (funct7 == 0b0000101) // MAX
+                {
+                    res = std::max(rs1_val_signed, rs2_val_signed);
+                }
                 else
                 {
                     fprintf(stderr, "Unknown base math instruction\n");
@@ -467,7 +551,7 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 }
                 break;
             case BaseMathInstructionType::XOR:
-                if (funct7 == 0b0100000) // XORN
+                if (funct7 == 0b0100000) // XNOR
                 {
                     res = ~(rs1_val_signed ^ rs2_val_signed);
                 }
@@ -479,6 +563,10 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 {
                     res = rs1_val_signed & 0xFFFF;
                 }
+                else if (funct7 == 0b0000101) // MIN
+                {
+                    res = std::min(rs1_val_signed, rs2_val_signed);
+                }
                 else
                 {
                     fprintf(stderr, "Unknown base math instruction.\nfunct7 0x%02x, addr 0x%08x\n",
@@ -489,7 +577,16 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
             case BaseMathInstructionType::SLL:
             {
                 uint32_t shamt = rs2_val_unsigned & 0x1F;
-                res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
+                if (funct7 == 0b0000000) // SLL
+                {
+                    res = helpers::bitcast<int>(rs1_val_unsigned << shamt);
+                }
+                else if (funct7 == 0b0110000) // ROL
+                {
+                    res = helpers::bitcast<int>(
+                          (rs1_val_unsigned << shamt) |
+                          (rs2_val_unsigned >> (32 - shamt)));
+                }
                 break;
             }
             case BaseMathInstructionType::SRL_SRA:
@@ -502,6 +599,16 @@ uint32_t exec_base_math_r(memory::Memory& memory, const isa::Instruction& instr)
                 else if (funct7 == 0x0) // SRL
                 {
                     res = helpers::bitcast<int>(rs1_val_unsigned >> shamt);
+                }
+                else if (funct7 == 0b0000101) // MINU
+                {
+                    res = helpers::bitcast<int>(std::min(rs1_val_unsigned, rs2_val_unsigned));
+                }
+                else if (funct7 == 0b0110000) // ROR
+                {
+                    res = helpers::bitcast<int>(
+                          (rs1_val_unsigned >> shamt) |
+                          (rs2_val_unsigned << (32 - shamt)));
                 }
                 else
                 {
