@@ -20,13 +20,20 @@ public:
         decoder_ = std::make_shared<decoder::Decoder>();
     }
 
-    void dump_instr() const
+    void dump_instrs() const
     {
         for (auto& instr : instrs_)
         {
             fprintf(stderr, "address: 0x%08x; code: 0x%08x; name: %s\n",
                     instr->get_address(), instr->get_raw_code(), instr->get_name().c_str());
         }
+    }
+
+    void dump_instr(int idx) const
+    {
+        auto instr = instrs_[idx];
+        fprintf(stderr, "address: 0x%08x; code: 0x%08x; name: %s\n",
+                instr->get_address(), instr->get_raw_code(), instr->get_name().c_str());
     }
 
     void decode(const std::string& filename)

@@ -22,17 +22,12 @@ public:
     void set_int_reg(int num, uint32_t val)
     {
         assert(num < NUM_INT_REGS);
-        assert(num != 0);
         int_regs_[num] = val;
     }
 
     uint32_t get_int_reg(int num) const
     {
         assert(num < NUM_INT_REGS);
-        if (num == 0)
-        {
-            return 0;
-        }
         return int_regs_[num];
     }
 
