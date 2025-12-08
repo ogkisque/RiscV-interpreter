@@ -249,7 +249,7 @@ uint32_t exec_base_math_i(memory::Memory& memory, const isa::Instruction& instr)
                     uint32_t tmp = rs1_val_unsigned & 0xFF;
                     res = helpers::bitcast<int>(tmp << 24) >> 24;
                 }
-                else if (shamt = 0b00101) // SEXT.H
+                else if (shamt == 0b00101) // SEXT.H
                 {
                     uint32_t tmp = rs1_val_unsigned & 0xFFFF;
                     res = helpers::bitcast<int>(tmp << 16) >> 16;
@@ -532,7 +532,6 @@ uint32_t exec_jalr(memory::Memory& memory, const isa::Instruction& instr)
     assert(instr.get_funct3() == 0x0);
 
     uint32_t rs1_val_unsigned = memory.get_int_reg(rs1);
-    int rs1_val_signed = helpers::bitcast<int>(rs1_val_unsigned);
 
     uint32_t offs_unsigned = instr.get_imm();
     int offs_signed = (helpers::bitcast<int>(offs_unsigned << 20)) >> 20;
@@ -821,6 +820,7 @@ uint32_t exec_fmadd(memory::Memory& memory, const isa::Instruction& instr)
         res = std::fma(rs1_val, rs2_val, rs3_val);
     }
 
+    memory.set_float_reg(rd, res);
     return memory.get_pc() + INSTR_SIZE;
 }
 
@@ -845,6 +845,7 @@ uint32_t exec_fmsub(memory::Memory& memory, const isa::Instruction& instr)
         res = std::fma(rs1_val, rs2_val, -rs3_val);
     }
 
+    memory.set_float_reg(rd, res);
     return memory.get_pc() + INSTR_SIZE;
 }
 
@@ -869,6 +870,7 @@ uint32_t exec_fnmadd(memory::Memory& memory, const isa::Instruction& instr)
         res = std::fma(-rs1_val, rs2_val, -rs3_val);
     }
 
+    memory.set_float_reg(rd, res);
     return memory.get_pc() + INSTR_SIZE;
 }
 
@@ -893,6 +895,7 @@ uint32_t exec_fnmsub(memory::Memory& memory, const isa::Instruction& instr)
         res = std::fma(-rs1_val, rs2_val, rs3_val);
     }
 
+    memory.set_float_reg(rd, res);
     return memory.get_pc() + INSTR_SIZE;
 }
 

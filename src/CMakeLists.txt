@@ -4,4 +4,5 @@ add_library(interpreter_lib INTERFACE)
 target_include_directories(interpreter_lib INTERFACE ${INCLUDE_DIR})
 
 add_executable(main main.cpp isa.cpp)
+target_compile_options(main PRIVATE -Wall -Wextra)
 target_link_libraries(main interpreter_lib)
